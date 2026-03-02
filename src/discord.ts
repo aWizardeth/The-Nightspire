@@ -21,6 +21,14 @@ export const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
  * Discord REST or our own API with user context.
  */
 export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
+  // Check if we're running inside Discord iframe
+  const params = new URLSearchParams(window.location.search);
+  const frameId = params.get('frame_id');
+  
+  if (!frameId) {
+    throw new Error('This Activity must be launched from Discord. Visit discord.gg and add the Battle of Wizards app to your server.');
+  }
+
   // 1. Wait for the READY event from Discord client
   await discordSdk.ready();
   console.log('[aWizard] Discord SDK ready');

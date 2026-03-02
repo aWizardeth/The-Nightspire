@@ -52,11 +52,35 @@ export default function App() {
   }
 
   if (error) {
+    const isDiscordActivityError = error.includes('must be launched from Discord');
+    
     return (
       <div className="flex items-center justify-center h-screen px-6 text-center">
-        <div>
-          <p className="text-[var(--danger)] text-lg font-semibold mb-2">Portal Failed</p>
-          <p className="text-[var(--text-muted)] text-sm max-w-md">{error}</p>
+        <div className="max-w-lg">
+          {isDiscordActivityError ? (
+            <>
+              <div className="text-6xl mb-4">🧙‍♂️</div>
+              <h1 className="text-2xl font-bold text-[var(--text-normal)] mb-4">
+                Battle of Wizards
+              </h1>
+              <p className="text-[var(--text-muted)] mb-6 leading-relaxed">
+                This is a Discord Activity that must be launched from within Discord.
+              </p>
+              <div className="bg-[var(--background-secondary)] border border-[var(--background-modifier-accent)] rounded-lg p-4 text-left text-sm">
+                <p className="text-[var(--text-normal)] font-semibold mb-2">To play:</p>
+                <ol className="text-[var(--text-muted)] space-y-1 list-decimal list-inside">
+                  <li>Open Discord on desktop or mobile</li>
+                  <li>Join a server with the Battle of Wizards app</li>
+                  <li>Start an Activity and select "Battle of Wizards"</li>
+                </ol>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[var(--danger)] text-lg font-semibold mb-2">Portal Failed</p>
+              <p className="text-[var(--text-muted)] text-sm max-w-md">{error}</p>
+            </>
+          )}
         </div>
       </div>
     );
