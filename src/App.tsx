@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import NavShell from './components/NavShell';
 import WizardChat from './components/WizardChat';
 import BattleTab from './components/BattleTab';
@@ -16,9 +16,14 @@ export default function App() {
   const [user, setUser] = useState<DiscordUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const store = useBowActivityStore();
+  const setAccessToken = useBowActivityStore((s) => s.setAccessToken);
+  const initRef = useRef(false);
 
   useEffect(() => {
+    // Prevent double-init (StrictMode or store-triggered re-render)
+    if (initRef.current) return;
+    initRef.current = true;
+
     let cancelled = false;
 
     async function init() {
@@ -38,14 +43,14 @@ export default function App() {
             avatar: null,
             global_name: 'Developer Tester'
           });
-          store.setAccessToken('mock_dev_token');
+          setAccessToken('mock_dev_token');
           setLoading(false);
           return;
         }
 
         const { accessToken } = await setupDiscordSdk();
         if (cancelled) return;
-        store.setAccessToken(accessToken);
+        setAccessToken(accessToken);
 
         const profile = await fetchDiscordUser(accessToken);
         if (cancelled) return;
@@ -68,7 +73,8 @@ export default function App() {
 
     init();
     return () => { cancelled = true; };
-  }, [store]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── Loading ────────────────────────────────────────────── */
   if (loading) {
