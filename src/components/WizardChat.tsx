@@ -48,116 +48,13 @@ export default function WizardChat({ user }: WizardChatProps) {
     }
   }
 
-  // Hybrid wizard response: bot integration + GitHub Models fallback
+  // Get wizard response using Activity API
   async function getWizardResponse(message: string): Promise<string> {
-    // Method 1: Try communicating with Discord bot through DM
-    try {
-      const botResponse = await tryDiscordBotInteraction(message);
-      if (botResponse) {
-        console.log('[WizardChat] Got response from Discord bot');
-        return botResponse;
-      }
-    } catch (error) {
-      console.log('[WizardChat] Discord bot unavailable, using fallback');
-    }
-
-    // Method 2: Fallback to direct GitHub Models API call
-    return await callGitHubModelsAPI(message);
+    return await sendWizardMessage(message);
   }
 
-  // Try to interact with Discord bot through Discord systems
-  async function tryDiscordBotInteraction(message: string): Promise<string | null> {
-    try {
-      const { discordSdk } = await import('../discord');
-      
-      // Bot Configuration Required:
-      // Your Discord bot should listen for DMs starting with "[ACTIVITY]"
-      // and respond immediately for Activity integration
-      
-      const BOT_USER_ID = '1477105366520041532'; // aWizard Discord bot
-      
-      // Create DM channel with bot
-      const dmChannel = await discordSdk.commands.createDm({
-        recipient_id: BOT_USER_ID
-      });
-
-      // Send message to bot with Activity identifier
-      const activityMessage = `[ACTIVITY] ${user?.global_name || 'User'}: ${message}`;
-      
-      // Get stored access token
-      const accessToken = localStorage.getItem('discord_access_token');
-      if (!accessToken) {
-        throw new Error('No Discord access token available');
-      }
-
-      // Send message to bot via Discord API
-      const response = await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: activityMessage
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Discord API failed: ${response.status}`);
-      }
-
-      // Wait for bot response with timeout
-      const botReply = await waitForBotResponse(dmChannel.id, 4000); // 4 second timeout
-      return botReply;
-
-    } catch (error) {
-      console.log('[WizardChat] Discord bot interaction failed:', error);
-      return null;
-    }
-  }
-
-  // Wait for bot response in DM channel
-  async function waitForBotResponse(channelId: string, timeoutMs: number): Promise<string | null> {
-    const startTime = Date.now();
-    const accessToken = localStorage.getItem('discord_access_token');
-    const BOT_USER_ID = '1477105366520041532'; // aWizard Discord bot
-    
-    if (!accessToken) return null;
-
-    while (Date.now() - startTime < timeoutMs) {
-      try {
-        const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=2`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          }
-        });
-
-        if (response.ok) {
-          const messages = await response.json();
-          
-          // Look for recent bot response
-          for (const message of messages) {
-            if (message.author.id === BOT_USER_ID && 
-                new Date(message.timestamp).getTime() > startTime &&
-                !message.content.startsWith('[ACTIVITY]')) { // Exclude our own message
-              return message.content;
-            }
-          }
-        }
-
-        // Wait 600ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 600));
-      } catch (error) {
-        console.log('[WizardChat] Error checking for bot response:', error);
-        break;
-      }
-    }
-
-    return null; // Timeout reached
-  }
-
-  // Fallback: Direct GitHub Models API call (your existing implementation)
-  async function callGitHubModelsAPI(message: string): Promise<string> {
+  // Send message to aWizard via Activity API (simplified)
+  async function sendWizardMessage(message: string): Promise<string> {
     const discordContext = await gatherDiscordContext();
 
     const response = await fetch('/api/wizard', {
@@ -171,11 +68,42 @@ export default function WizardChat({ user }: WizardChatProps) {
     });
 
     if (!response.ok) {
-      throw new Error(`GitHub Models API failed: ${response.status}`);
+      throw new Error(`Wizard API failed: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.response || 'The wizard is silent... try again.';
+    return data.reply || 'The wizard is contemplating your query... 🧙';
+  }
+
+  // Gather Discord context for AI prompting  
+  async function gatherDiscordContext() {
+    try {
+      const { discordSdk } = await import('../discord');
+      
+      const context: any = {
+        username: user?.global_name || user?.username || 'traveler',
+        guildId: discordSdk.guildId,
+        channelId: discordSdk.channelId,
+      };
+
+      // Try to get basic info without using unavailable SDK methods
+      if (context.guildId) {
+        context.guildName = 'Discord Server';
+      }
+      
+      if (context.channelId) {
+        context.channelName = 'Activity Channel';
+      }
+
+      return context;
+    } catch (error) {
+      console.log('[WizardChat] Could not gather Discord context');
+      return {
+        username: user?.global_name || user?.username || 'traveler',
+        guildName: 'Discord Server', 
+        channelName: 'Activity Channel',
+      };
+    }
   }
 
   // Gather rich Discord context for AI

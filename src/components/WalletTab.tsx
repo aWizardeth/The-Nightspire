@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { usePrivacyFirstWallet } from '../lib/privacyWallet';
 import useBowActivityStore from '../store/bowActivityStore';
 

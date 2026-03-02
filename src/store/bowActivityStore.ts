@@ -108,7 +108,7 @@ const DEFAULT_FIGHTER: Fighter = {
 
 export const useBowActivityStore = create<BowActivityStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Private wallet state
       wallet: {
         fingerprint: null,

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^1.4.0",
+    "@walletconnect/client": "^1.8.0",
+    "@walletconnect/qrcode-modal": "^1.8.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.11"

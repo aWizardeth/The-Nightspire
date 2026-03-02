@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import useBowActivityStore from '../store/bowActivityStore';
 import { usePrivacyFirstWallet } from '../lib/privacyWallet';
 import { MOVES, getAvailableMoves } from '../lib/battleEngine';
@@ -305,7 +305,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
           {store.gui.battleLogs.length === 0 ? (
             <p className="text-gray-500 text-center">No battle activity yet</p>
           ) : (
-            store.gui.battleLogs.map((log, index) => (
+            store.gui.battleLogs.map((log: string, index: number) => (
               <div key={index} className="py-1 text-sm font-mono">
                 {log}
               </div>

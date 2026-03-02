@@ -282,8 +282,6 @@ export class ActivityStateChannelManager {
 
   // Clean up inactive channels
   cleanup(): void {
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    
     for (const [channelId, channel] of this.channels.entries()) {
       const status = channel.getChannelStatus();
       if (!status.isActive && status.messageCount === 0) {
