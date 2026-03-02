@@ -114,16 +114,22 @@ export default function WizardChat({ user }: WizardChatProps) {
           <div
             key={i}
             className={`px-3 py-2 rounded-lg text-sm max-w-[85%] ${
-              msg.role === 'wizard'
-                ? 'bg-[var(--bg-secondary)] self-start'
-                : 'bg-[var(--accent)] text-white self-end ml-auto'
+              msg.role === 'wizard' ? 'self-start' : 'self-end ml-auto'
             }`}
+            style={
+              msg.role === 'wizard'
+                ? { background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-color)' }
+                : { background: 'var(--accent)', color: '#fff' }
+            }
           >
             {msg.content}
           </div>
         ))}
         {loading && (
-          <div className="px-3 py-2 rounded-lg text-sm bg-[var(--bg-secondary)] self-start animate-pulse text-[var(--text-muted)]">
+          <div
+            className="px-3 py-2 rounded-lg text-sm self-start animate-pulse"
+            style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}
+          >
             🧙 Consulting the arcane energies…
           </div>
         )}
@@ -133,19 +139,20 @@ export default function WizardChat({ user }: WizardChatProps) {
       {/* Input */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-        className="flex gap-2 pt-2 border-t border-[var(--bg-tertiary)]"
+        className="flex gap-2 pt-2"
+        style={{ borderTop: '1px solid var(--border-color)' }}
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask the wizard…"
-          className="flex-1 bg-[var(--bg-tertiary)] rounded-md px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] focus:ring-1 focus:ring-[var(--accent)]"
+          className="glow-input flex-1 text-sm"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+          className="glow-btn disabled:opacity-40 text-sm"
         >
           Send
         </button>

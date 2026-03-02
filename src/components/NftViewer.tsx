@@ -9,14 +9,14 @@
 export default function NftViewer() {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold">🎴 Your NFTs</h2>
-      <p className="text-[var(--text-muted)] text-sm">
+      <h2 className="glow-text text-lg font-bold">🎴 Your NFTs</h2>
+      <p style={{ color: 'var(--text-muted)' }} className="text-sm">
         Connect your wallet to see your Magic BOW collection.
       </p>
 
       {/* Empty state */}
-      <div className="flex items-center justify-center h-48 bg-[var(--bg-secondary)] rounded-lg border border-dashed border-[var(--bg-tertiary)]">
-        <span className="text-[var(--text-muted)] text-sm">No NFTs loaded</span>
+      <div className="glow-card flex items-center justify-center h-48">
+        <span style={{ color: 'var(--text-muted)' }} className="text-sm">No NFTs loaded</span>
       </div>
     </div>
   );

@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
-/* ── Discord Activity dark palette ─────────────────────────────── */
+/* ── Glow theme variables (matches bow-app) ────────────────── */
 :root {
-  --bg-primary:   #1e1f22;
-  --bg-secondary: #2b2d31;
-  --bg-tertiary:  #313338;
-  --text-primary: #f2f3f5;
-  --text-muted:   #949ba4;
-  --accent:       #5865f2;
-  --accent-hover: #4752c4;
-  --success:      #23a55a;
+  --text-color:   #e0f7ff;
+  --border-color: #00d9ff;
+  --glow-inner:   #ff6600;
+  --glow-outer:   #00d9ff;
+  --sel-fill:     #d7fcfe;
+  --sel-text:     #020d0d;
+  --border-w: 2.5px;
+  --glow-r: 10;
+  --glow-s: 30;
+  --glow-far: #1a082b;
+  --glow-f: 36;
+  --glow-b1: 5;
+  --glow-b2: 8;
+  --bg: rgba(10, 12, 24, 0.88);
+  --bg-deep: #060810;
+  --bg-card: rgba(25, 15, 20, 0.93);
+
+  /* Aliases used across components */
+  --bg-primary:   #060810;
+  --bg-secondary: rgba(25, 15, 20, 0.93);
+  --bg-tertiary:  rgba(35, 25, 35, 0.9);
+  --text-primary: #e0f7ff;
+  --text-normal:  #e0f7ff;
+  --text-muted:   #8ba3b0;
+  --accent:       #00d9ff;
+  --accent-hover: #00b8d9;
+  --success:      #4ade80;
   --danger:       #f23f42;
   --warning:      #f0b232;
+  --background-secondary: rgba(25, 15, 20, 0.93);
+  --background-modifier-accent: rgba(0, 217, 255, 0.15);
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+  background-color: var(--bg-deep);
+  color: var(--text-color);
   font-family: 'gg sans', 'Noto Sans', Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
 }
 
-/* ── Scrollbar styling (matches Discord) ──────────────────────── */
+/* ── Glow utilities ────────────────────────────────────────── */
+.glow-card {
+  background: var(--bg-card);
+  border: var(--border-w) solid var(--border-color);
+  border-radius: 12px;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) var(--glow-outer),
+    0 0 calc(var(--glow-f) * 1px) calc(var(--glow-b2) * 1px) var(--glow-far);
+}
+
+.glow-text {
+  color: var(--text-color);
+  text-shadow:
+    0 0 6px #fff,
+    0 0 18px rgba(255,255,255,0.7),
+    0 0 40px var(--glow-inner);
+}
+
+.glow-btn {
+  padding: 10px 24px;
+  font-weight: bold;
+  color: var(--text-color);
+  background: linear-gradient(90deg, var(--bg) 60%, var(--bg-deep) 100%);
+  border: var(--border-w) solid var(--border-color);
+  border-radius: 8px;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) var(--glow-outer);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.glow-btn:hover {
+  background: var(--sel-fill);
+  color: var(--sel-text);
+  box-shadow:
+    0 0 calc(var(--glow-r) * 2px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1.5px) calc(var(--glow-b1) * 1px) var(--glow-outer),
+    0 0 6px rgba(255,255,255,0.4);
+}
+
+.glow-btn.active {
+  background: var(--sel-fill);
+  color: var(--sel-text);
+  border-color: var(--border-color);
+  box-shadow:
+    0 0 calc(var(--glow-s) * 1px) var(--glow-outer),
+    0 0 calc(var(--glow-f) * 1px) calc(var(--glow-b2) * 1px) var(--glow-far);
+}
+
+.glow-input {
+  padding: 10px 16px;
+  color: var(--text-color);
+  background: var(--bg-deep);
+  border: var(--border-w) solid var(--border-color);
+  border-radius: 6px;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) var(--glow-outer);
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.glow-input:focus {
+  box-shadow:
+    0 0 calc(var(--glow-r) * 2px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1.5px) calc(var(--glow-b1) * 1px) var(--glow-outer);
+}
+
+/* ── Scrollbar styling (matches Discord) ──────────────────── */
 ::-webkit-scrollbar {
   width: 8px;
 }
