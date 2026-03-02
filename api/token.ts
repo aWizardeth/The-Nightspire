@@ -23,7 +23,8 @@ export default async function handler(
     }
 
     // Discord OAuth2 credentials from environment
-    const clientId = process.env.DISCORD_CLIENT_ID;
+    // Note: VITE_DISCORD_CLIENT_ID works in serverless functions too
+    const clientId = process.env.VITE_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
