@@ -63,6 +63,17 @@ export default function WalletTab({ userId }: WalletTabProps) {
     window.location.reload();
   };
 
+  const handleConnect = async () => {
+    console.log('[aWizard Wallet] 🔵 Connect button clicked!');
+    console.log('[aWizard Wallet] Current state:', { isConnecting, pairingUri: !!pairingUri, session: !!session });
+    try {
+      await connect();
+      console.log('[aWizard Wallet] ✅ Connect function completed');
+    } catch (err) {
+      console.error('[aWizard Wallet] ❌ Connect function error:', err);
+    }
+  };
+
   if (!userId) {
     return (
       <div className="p-6 text-center">
@@ -227,7 +238,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
                 </div>
 
                 <button
-                  onClick={connect}
+                  onClick={handleConnect}
                   disabled={isConnecting}
                   className="w-full px-6 py-3 rounded-lg font-semibold transition-all"
                   style={{
