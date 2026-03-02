@@ -21,52 +21,53 @@ export const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
  * Discord REST or our own API with user context.
  */
 export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
-  // Check if we're running inside Discord iframe
-  const params = new URLSearchParams(window.location.search);
-  const frameId = params.get('frame_id');
-  
-  if (!frameId) {
-    throw new Error('This Activity must be launched from Discord. Visit discord.gg and add the Battle of Wizards app to your server.');
-  }
-
   // 1. Wait for the READY event from Discord client
   await discordSdk.ready();
   console.log('[aWizard] Discord SDK ready');
 
-  // 2. Authorise — request identity scope
+  // 2. Authorise — request identity scope (minimal announcements)
   const { code } = await discordSdk.commands.authorize({
     client_id: DISCORD_CLIENT_ID,
     response_type: 'code',
     state: '',
-    prompt: 'none',
-    scope: ['identify', 'guilds', 'applications.commands'],
+    prompt: 'none', // Reduces auth popups
+    scope: ['identify'], // Minimal scope to reduce activity tracking
   });
 
   // 3. Exchange the code for a token via our backend
+  //    In development, we can bypass this with a mock token
+  const isDev = import.meta.env.DEV;
   let access_token: string;
   
-  try {
-    // Call our Vercel serverless function for token exchange
-    const res = await fetch('/api/token', {
+  if (isDev && !import.meta.env.VITE_TOKEN_EXCHANGE_URL) {
+    // Development bypass - use mock token
+    console.log('[aWizard] Using mock token for local development');
+    access_token = 'mock_development_token_' + Date.now();
+  } else {
+    // Production token exchange
+    const tokenEndpoint =
+      (import.meta.env.VITE_TOKEN_EXCHANGE_URL as string) ?? '/.proxy/api/token';
+
+    const res = await fetch(tokenEndpoint, {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Token exchange failed: ${res.status} - ${errorText}`);
+      throw new Error(`[aWizard] Token exchange failed: ${res.status}`);
     }
 
     const result = (await res.json()) as { access_token: string };
     access_token = result.access_token;
-    console.log('[aWizard] Successfully exchanged code for access token');
-  } catch (error) {
-    console.error('[aWizard] Token exchange error:', error);
-    throw new Error(`[aWizard] Authentication failed: ${error}`);
   }
 
-  // 4. Authenticate with the SDK using real access token
+  // 4. Authenticate with the SDK (skip in dev mode if using mock token)
+  if (isDev && access_token.startsWith('mock_')) {
+    console.log('[aWizard] Skipping SDK authentication in development');
+    return { accessToken: access_token };
+  }
+
   const auth = await discordSdk.commands.authenticate({ access_token });
 
   if (!auth) {
@@ -74,11 +75,5 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
   }
 
   console.log('[aWizard] Authenticated as', auth.user?.username);
-  
-  // Store access token for Discord API calls from components
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('discord_access_token', access_token);
-  }
-  
   return { accessToken: access_token };
 }
