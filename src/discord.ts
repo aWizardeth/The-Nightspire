@@ -68,18 +68,26 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
     access_token = result.access_token;
   }
 
-  // 4. Authenticate with the SDK (skip if using mock token)
-  if (access_token.startsWith('mock_')) {
-    console.log('[aWizard] Skipping SDK authentication with mock token');
+  // 4. Authenticate with the SDK 
+  // Note: Even with mock tokens, we attempt authentication to let Discord store auth state
+  try {
+    const auth = await discordSdk.commands.authenticate({ access_token });
+    
+    if (!auth) {
+      if (access_token.startsWith('mock_')) {
+        console.log('[aWizard] Mock token authentication failed (expected), continuing...');
+        return { accessToken: access_token };
+      }
+      throw new Error('[aWizard] Discord authentication failed');
+    }
+
+    console.log('[aWizard] Authenticated as', auth.user?.username);
     return { accessToken: access_token };
+  } catch (error) {
+    if (access_token.startsWith('mock_')) {
+      console.log('[aWizard] Mock token authentication failed (expected):', error);
+      return { accessToken: access_token };
+    }
+    throw error;
   }
-
-  const auth = await discordSdk.commands.authenticate({ access_token });
-
-  if (!auth) {
-    throw new Error('[aWizard] Discord authentication failed');
-  }
-
-  console.log('[aWizard] Authenticated as', auth.user?.username);
-  return { accessToken: access_token };
 }
