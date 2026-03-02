@@ -74,7 +74,7 @@ export default function WizardChat({ user }: WizardChatProps) {
       // Your Discord bot should listen for DMs starting with "[ACTIVITY]"
       // and respond immediately for Activity integration
       
-      const BOT_USER_ID = '1477105366520041532'; // Replace with your bot's actual Discord user ID
+      const BOT_USER_ID = '1477105366520041532'; // aWizard Discord bot
       
       // Create DM channel with bot
       const dmChannel = await discordSdk.commands.createDm({
@@ -120,7 +120,7 @@ export default function WizardChat({ user }: WizardChatProps) {
   async function waitForBotResponse(channelId: string, timeoutMs: number): Promise<string | null> {
     const startTime = Date.now();
     const accessToken = localStorage.getItem('discord_access_token');
-    const BOT_USER_ID = '1477105366520041532'; // Your bot's Discord user ID
+    const BOT_USER_ID = '1477105366520041532'; // aWizard Discord bot
     
     if (!accessToken) return null;
 
