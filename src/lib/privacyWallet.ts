@@ -1,24 +1,6 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
-// Mock WalletConnect for build compatibility (would use real WalletConnect in production)
-class MockClient {
-  async init() { return this; }
-  on() { }
-  async connect() { 
-    return { 
-      uri: 'mock://wallet-connect-uri',
-      approval: () => Promise.resolve({ topic: 'mock-session', namespaces: {} })
-    }; 
-  }
-  async disconnect() { }
-  async request() { return { nft_list: [] }; }
-}
-
-const MockQRCodeModal = {
-  open: () => {},
-  close: () => {}
-};
+import WalletConnect from "@walletconnect/client";
+import QRCodeModal from "@walletconnect/qrcode-modal";
 import useBowActivityStore from "../store/bowActivityStore";
 import type { NFTData, Fighter } from "../store/bowActivityStore";
 
@@ -33,7 +15,7 @@ export interface WalletConnectConfig {
 }
 
 const DEFAULT_CONFIG: WalletConnectConfig = {
-  projectId: "a7ee08ccf8d8de0c2b1b784a67c4e14f", // Public test project ID
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "a7ee08ccf8d8de0c2b1b784a67c4e14f", // Fallback to test ID for development
   metadata: {
     name: "Battle of Wizards",
     description: "Discord Activity for PvE/PvP battles with soulbound NFTs",
@@ -43,7 +25,7 @@ const DEFAULT_CONFIG: WalletConnectConfig = {
 };
 
 export class PrivacyFirstWallet {
-  private client: MockClient | null = null;
+  private client: WalletConnect | null = null;
   private config: WalletConnectConfig;
   private userId: string;
 
@@ -56,14 +38,16 @@ export class PrivacyFirstWallet {
     try {
       console.log(`[aWizard] Initializing wallet for user ${this.userId}`);
       
-      this.client = new MockClient();
-      await this.client.init();
+      this.client = new WalletConnect({
+        bridge: "https://bridge.walletconnect.org",
+        qrcodeModal: QRCodeModal,
+        clientMeta: this.config.metadata,
+      });
 
       // Set up event listeners
-      this.client.on("session_proposal", this.onSessionProposal);
+      this.client.on("connect", this.onSessionProposal);
       this.client.on("session_request", this.onSessionRequest);
-      this.client.on("session_delete", this.onSessionDelete);
-      this.client.on("session_update", this.onSessionUpdate);
+      this.client.on("disconnect", this.onSessionDelete);
 
       console.log(`[aWizard] Wallet client initialized for user ${this.userId}`);
     } catch (error) {
@@ -80,19 +64,20 @@ export class PrivacyFirstWallet {
     try {
       console.log(`[aWizard] Starting wallet connection for user ${this.userId}`);
       
-      const { uri, approval } = await this.client!.connect();
-
-      if (uri) {
-        console.log(`[aWizard] Generated connection URI for user ${this.userId}`);
+      // WalletConnect v1 creates session and shows QR automatically
+      await this.client!.createSession();
+      
+      console.log(`[aWizard] Connection request initiated for user ${this.userId}`);
+      
         
         // Show QR code modal for this specific user
-        MockQRCodeModal.open(uri, () => {
+        QRCodeModal.open(uri, () => {
           console.log(`[aWizard] QR code modal closed for user ${this.userId}`);
         });
 
         // Wait for user approval
         const session = await approval();
-        MockQRCodeModal.close();
+        QRCodeModal.close();
         
         console.log(`[aWizard] Wallet connected for user ${this.userId}:`, session.namespaces);
         return session.topic;
@@ -100,7 +85,7 @@ export class PrivacyFirstWallet {
       
       throw new Error("No connection URI generated");
     } catch (error) {
-      MockQRCodeModal.close();
+      QRCodeModal.close();
       console.error(`[aWizard] Failed to connect wallet for user ${this.userId}:`, error);
       throw error;
     }
@@ -110,9 +95,9 @@ export class PrivacyFirstWallet {
     if (!this.client) return;
     
     try {
-      await this.client.disconnect();
+      await this.client.killSession();
       console.log(`[aWizard] Wallet disconnected for user ${this.userId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[aWizard] Failed to disconnect wallet for user ${this.userId}:`, error);
     }
   }
@@ -123,7 +108,15 @@ export class PrivacyFirstWallet {
     }
 
     try {
-      const result = await this.client.request();
+      const result = await this.client.sendCustomRequest({
+        method: "chia_getNFTs",
+        params: {
+          wallet_id: 1, // Default NFT wallet
+          start_index: 0,
+          num_results: 100,
+          },
+        },
+      });
 
       // Transform Chia NFT format to our NFTData format
       const nfts: NFTData[] = result.nft_list.map((nft: any) => {
@@ -134,8 +127,8 @@ export class PrivacyFirstWallet {
         const fighter = this.parseFighterFromAttributes(attributes);
         
         return {
-          id: nft.nft_coin_id || `nft_${Math.random().toString(36).substr(2, 9)}`,
-          tokenId: nft.launcher_id || `token_${Math.random().toString(36).substr(2, 9)}`,
+          id: nft.nft_coin_id,
+          tokenId: nft.launcher_id,
           name: metadata.name || "Unknown Fighter",
           image: metadata.image,
           attributes,
@@ -187,9 +180,7 @@ export class PrivacyFirstWallet {
     console.log(`[aWizard] Session deleted for user ${this.userId}:`, event);
   };
 
-  private onSessionUpdate = (event: any) => {
-    console.log(`[aWizard] Session updated for user ${this.userId}:`, event);
-  };
+  // Event handlers (not all used in v1 API)
 }
 
 // React hook for wallet management

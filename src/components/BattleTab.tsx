@@ -115,7 +115,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
         } else if (result.roundResult) {
           // Round completed
           const { battleLog, player1Damage, player2Damage } = result.roundResult;
-          battleLog.forEach(log => store.addBattleLog(log));
+          battleLog.forEach((log: any) => store.addBattleLog(log));
           
           if (player1Damage > 0) {
             store.addBattleLog(`💥 Player 1 took ${player1Damage} damage!`);
