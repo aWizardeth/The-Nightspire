@@ -80,6 +80,8 @@ export interface WalletConnectContextValue {
   /** chip0002_getNFTs — returns NFTs held by the wallet (with metadata) */
   getNFTs: () => Promise<WalletNft[]>;
   isConnecting: boolean;
+  /** true once SignClient has finished initializing */
+  clientReady: boolean;
   error: string | null;
 }
 
@@ -90,6 +92,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   const [session, setSession]           = useState<SessionTypes.Struct | null>(null);
   const [pairingUri, setPairingUri]     = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [clientReady, setClientReady]   = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
@@ -143,6 +146,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     }).then((c) => {
       if (!mounted) return;
       clientRef.current = c;
+      setClientReady(true);
       console.log('[aWizard] ✅ SignClient initialized successfully');
 
       // Purge expired sessions
@@ -350,6 +354,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       getAssetCoins,
       getNFTs,
       isConnecting,
+      clientReady,
       error
     }}>
       {children}

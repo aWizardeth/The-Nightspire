@@ -22,6 +22,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
     cancelConnect,
     getNFTs,
     isConnecting,
+    clientReady,
     error
   } = useWalletConnect();
 
@@ -33,8 +34,8 @@ export default function WalletTab({ userId }: WalletTabProps) {
   }, [pairingUri]);
 
   useEffect(() => {
-    console.log('[aWizard Wallet] State:', { showQr, pairingUri: !!pairingUri, isConnecting, session: !!session, error });
-  }, [showQr, pairingUri, isConnecting, session, error]);
+    console.log('[aWizard Wallet] State:', { showQr, pairingUri: !!pairingUri, isConnecting, clientReady, session: !!session, error });
+  }, [showQr, pairingUri, isConnecting, clientReady, session, error]);
 
   const handleCopy = () => {
     if (!pairingUri) return;
@@ -150,7 +151,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
         {!session ? (
           <div>
-            {isConnecting && !pairingUri ? (
+            {!clientReady ? (
               <div className="rounded-lg p-4 mb-4" style={{
                 background: 'rgba(0,217,255,0.08)',
                 border: '1px solid rgba(0,217,255,0.3)',
@@ -159,7 +160,19 @@ export default function WalletTab({ userId }: WalletTabProps) {
                   ⚡ Initializing WalletConnect...
                 </p>
                 <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-                  Setting up secure connection
+                  Connecting to relay server
+                </p>
+              </div>
+            ) : isConnecting && !pairingUri ? (
+              <div className="rounded-lg p-4 mb-4" style={{
+                background: 'rgba(0,217,255,0.08)',
+                border: '1px solid rgba(0,217,255,0.3)',
+              }}>
+                <p style={{ color: '#00d9ff' }} className="font-semibold">
+                  ⚡ Generating pairing code...
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
+                  Preparing QR code for wallet connection
                 </p>
               </div>
             ) : showQr && pairingUri ? (
@@ -239,19 +252,19 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
                 <button
                   onClick={handleConnect}
-                  disabled={isConnecting}
+                  disabled={isConnecting || !clientReady}
                   className="w-full px-6 py-3 rounded-lg font-semibold transition-all"
                   style={{
-                    background: isConnecting 
+                    background: (isConnecting || !clientReady)
                       ? 'rgba(100,100,100,0.5)' 
                       : 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-                    color: isConnecting ? 'var(--text-muted)' : '#000',
+                    color: (isConnecting || !clientReady) ? 'var(--text-muted)' : '#000',
                     border: 'none',
-                    cursor: isConnecting ? 'not-allowed' : 'pointer',
-                    opacity: isConnecting ? 0.6 : 1,
+                    cursor: (isConnecting || !clientReady) ? 'not-allowed' : 'pointer',
+                    opacity: (isConnecting || !clientReady) ? 0.6 : 1,
                   }}
                 >
-                  {isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
+                  {!clientReady ? '⏳ Initializing...' : isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
                 </button>
               </div>
             )}
