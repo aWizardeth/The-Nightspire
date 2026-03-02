@@ -74,5 +74,11 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
   }
 
   console.log('[aWizard] Authenticated as', auth.user?.username);
+  
+  // Store access token for Discord API calls from components
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('discord_access_token', access_token);
+  }
+  
   return { accessToken: access_token };
 }

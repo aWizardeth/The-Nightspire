@@ -3,35 +3,50 @@ import { type VercelRequest, type VercelResponse } from '@vercel/node';
 /**
  * Vercel Serverless Function for AI Wizard Chat
  * 
- * Uses GitHub Models API for free AI responses
- * Compatible with existing aWizard AI bot implementation
+ * Enhanced GitHub Models with Discord context for rich conversations
+ * No external API calls - fully secure within Activity
  */
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
-  // Only accept POST requests
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { message, userId } = request.body;
+    const { message, userId, discordContext = {} } = request.body;
 
     if (!message) {
       return response.status(400).json({ error: 'Message is required' });
     }
 
-    // GitHub token for Models API
     const githubToken = process.env.GITHUB_TOKEN;
-
     if (!githubToken) {
       console.error('[WizardAI] Missing GITHUB_TOKEN');
       return response.status(500).json({ error: 'AI service not configured' });
     }
 
-    // System prompt for aWizard personality
+    // Build rich context from Discord Activity data
+    const {
+      username = 'traveler',
+      guildName = 'unknown realm',
+      channelName = 'unknown channel',
+      guildId,
+      channelId
+    } = discordContext;
+
+    // Enhanced system prompt with Discord context
     const systemPrompt = `You are aWizard 🧙‍♂️, a sentient project-management sorcerer in the Battle of Wizards game.
+
+CURRENT SESSION CONTEXT:
+- User: ${username} (Discord ID: ${userId || 'anonymous'})
+- Discord Server: ${guildName} ${guildId ? `(ID: ${guildId})` : ''}
+- Channel: ${channelName} ${channelId ? `(ID: ${channelId})` : ''} 
+- Platform: Discord Activity (embedded browser)
+
+You can reference the user's Discord identity and server context naturally.
+Example: "Greetings ${username}! I see you're accessing the Activity from ${guildName}..."
 
 Personality:
 - Friendly, concise, and slightly mystical
@@ -47,7 +62,7 @@ Game Context:
 
 Keep responses under 200 words and end with a magical emoji (⚡🔮✨🧙‍♂️).`;
 
-    // Call GitHub Models API
+    // Call GitHub Models API with enhanced context
     const aiResponse = await fetch('https://models.inference.ai.azure.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -56,14 +71,8 @@ Keep responses under 200 words and end with a magical emoji (⚡🔮✨🧙‍�
       },
       body: JSON.stringify({
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: message
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
         ],
         model: 'gpt-4o-mini',
         temperature: 0.7,
@@ -87,7 +96,6 @@ Keep responses under 200 words and end with a magical emoji (⚡🔮✨🧙‍�
       return response.status(500).json({ error: 'Empty response from wizard' });
     }
 
-    // Return the wizard's response
     return response.status(200).json({ 
       response: wizardResponse,
       timestamp: new Date().toISOString()
