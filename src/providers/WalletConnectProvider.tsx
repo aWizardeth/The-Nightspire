@@ -177,12 +177,21 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(async () => {
     const client = clientRef.current;
-    if (!client || isConnecting) return;
-
+    if (!client) { 
+      console.error('[aWizard] WalletConnect client not ready');
+      setError('WalletConnect client not ready'); 
+      return; 
+    }
+    if (isConnecting) {
+      console.log('[aWizard] Already connecting, ignoring');
+      return;
+    }
+    
+    console.log('[aWizard] Starting WalletConnect pairing...');
+    setIsConnecting(true);
+    setError(null);
+    
     try {
-      setIsConnecting(true);
-      setError(null);
-
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           chia: {
@@ -200,19 +209,27 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       });
 
       if (uri) {
+        console.log('[aWizard] WalletConnect pairing URI generated:', uri.substring(0, 50) + '...');
         setPairingUri(uri);
-        console.log('[aWizard] WalletConnect pairing URI:', uri);
+      } else {
+        console.error('[aWizard] No pairing URI received');
+        setError('Failed to generate pairing URI');
+        setIsConnecting(false);
+        return;
       }
 
+      console.log('[aWizard] Waiting for wallet approval...');
       const sess = await approval();
+      console.log('[aWizard] Wallet approved! Session topic:', sess.topic);
+      
       setSession(sess);
       setPairingUri(null);
       await fetchWalletAddress(sess);
-      console.log('[aWizard] WalletConnect session approved:', sess.topic);
+      console.log('[aWizard] WalletConnect session established');
 
     } catch (err: any) {
-      console.error('[aWizard] WalletConnect failed:', err);
-      setError(`Connection failed: ${err.message}`);
+      console.error('[aWizard] WalletConnect connection failed:', err);
+      setError(`Connection failed: ${err.message || String(err)}`);
       setPairingUri(null);
     } finally {
       setIsConnecting(false);

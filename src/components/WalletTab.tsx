@@ -27,9 +27,14 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
   // Auto-show QR when pairing URI is available
   useEffect(() => {
+    console.log('[aWizard Wallet] pairingUri changed:', pairingUri);
     if (pairingUri) setShowQr(true);
     else setShowQr(false);
   }, [pairingUri]);
+
+  useEffect(() => {
+    console.log('[aWizard Wallet] State:', { showQr, pairingUri: !!pairingUri, isConnecting, session: !!session, error });
+  }, [showQr, pairingUri, isConnecting, session, error]);
 
   const handleCopy = () => {
     if (!pairingUri) return;
@@ -134,7 +139,19 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
         {!session ? (
           <div>
-            {showQr && pairingUri ? (
+            {isConnecting && !pairingUri ? (
+              <div className="rounded-lg p-4 mb-4" style={{
+                background: 'rgba(0,217,255,0.08)',
+                border: '1px solid rgba(0,217,255,0.3)',
+              }}>
+                <p style={{ color: '#00d9ff' }} className="font-semibold">
+                  ⚡ Initializing WalletConnect...
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
+                  Setting up secure connection
+                </p>
+              </div>
+            ) : showQr && pairingUri ? (
               <div className="space-y-4">
                 <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
                   Scan with <strong style={{ color: 'var(--accent-primary)' }}>Sage mobile</strong>, or copy the URI into <strong style={{ color: 'var(--accent-primary)' }}>Sage desktop</strong>
