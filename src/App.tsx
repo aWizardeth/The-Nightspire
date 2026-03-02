@@ -1,21 +1,22 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import NavShell from './components/NavShell';
 import WizardChat from './components/WizardChat';
-import BattleDashboard from './components/BattleDashboard';
+import BattleTab from './components/BattleTab';
+import WalletTab from './components/WalletTab';
 import NftViewer from './components/NftViewer';
 import Leaderboard from './components/Leaderboard';
 import { setupDiscordSdk } from './discord';
 import { fetchDiscordUser, type DiscordUser } from './auth';
-import { useGuiStore } from './store/guiStore';
+import useBowActivityStore from './store/bowActivityStore';
 
-type Page = 'chat' | 'battle' | 'nft' | 'leaderboard';
+type Page = 'wallet' | 'battle' | 'chat' | 'nft' | 'leaderboard';
 
 export default function App() {
-  const [page, setPage] = useState<Page>('chat');
+  const [page, setPage] = useState<Page>('wallet');
   const [user, setUser] = useState<DiscordUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const setAccessToken = useGuiStore((s) => s.setAccessToken);
+  const store = useBowActivityStore();
 
   useEffect(() => {
     let cancelled = false;
@@ -24,11 +25,13 @@ export default function App() {
       try {
         const { accessToken } = await setupDiscordSdk();
         if (cancelled) return;
-        setAccessToken(accessToken);
+        store.setAccessToken(accessToken);
 
         const profile = await fetchDiscordUser(accessToken);
         if (cancelled) return;
         setUser(profile);
+        
+        console.log(`[aWizard] Activity initialized for Discord user ${profile.id}`);
       } catch (err) {
         console.error('[aWizard]', err);
         if (!cancelled) setError(String(err));
@@ -39,7 +42,7 @@ export default function App() {
 
     init();
     return () => { cancelled = true; };
-  }, [setAccessToken]);
+  }, [store]);
 
   if (loading) {
     return (
@@ -87,8 +90,9 @@ export default function App() {
   }
 
   const pages: Record<Page, ReactNode> = {
+    wallet: <WalletTab userId={user?.id || ''} />,
+    battle: <BattleTab userId={user?.id || ''} />,
     chat: <WizardChat user={user} />,
-    battle: <BattleDashboard />,
     nft: <NftViewer />,
     leaderboard: <Leaderboard />,
   };

@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import type { DiscordUser } from '../auth';
 
-type Page = 'chat' | 'battle' | 'nft' | 'leaderboard';
+type Page = 'wallet' | 'battle' | 'chat' | 'nft' | 'leaderboard';
 
 interface NavShellProps {
   activePage: Page;
@@ -14,10 +14,11 @@ interface NavShellProps {
 }
 
 const tabs: { id: Page; label: string; icon: string }[] = [
+  { id: 'wallet',      label: 'Wallet',      icon: '🔐' },
+  { id: 'battle',      label: 'Battle',      icon: '⚔️' },
   { id: 'chat',        label: 'Wizard',      icon: '🧙' },
-  { id: 'battle',      label: 'Battles',     icon: '⚔️' },
   { id: 'nft',         label: 'NFTs',        icon: '🎴' },
-  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
+  { id: 'leaderboard', label: 'Rankings',    icon: '🏆' },
 ];
 
 export default function NavShell({ activePage, onNavigate, user, children }: NavShellProps) {
