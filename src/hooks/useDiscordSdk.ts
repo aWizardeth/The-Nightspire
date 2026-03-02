@@ -25,12 +25,17 @@ export function useDiscordSdk(): DiscordSdkState {
 
   useEffect(() => {
     // The SDK may already be ready by the time this hook mounts
-    setState({
-      ready: true,
-      instanceId: discordSdk.instanceId,
-      channelId: discordSdk.channelId,
-      guildId: discordSdk.guildId,
-    });
+    try {
+      setState({
+        ready: true,
+        instanceId: discordSdk.instanceId,
+        channelId: discordSdk.channelId,
+        guildId: discordSdk.guildId,
+      });
+    } catch {
+      // Not inside Discord — leave defaults (null)
+      setState({ ready: false, instanceId: null, channelId: null, guildId: null });
+    }
   }, []);
 
   return state;

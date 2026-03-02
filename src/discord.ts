@@ -11,7 +11,21 @@ if (!DISCORD_CLIENT_ID) {
   console.error('[aWizard] VITE_DISCORD_CLIENT_ID is not set — the Activity will not function.');
 }
 
-export const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
+// Lazy singleton — only instantiated when inside a Discord iframe context
+let _discordSdk: DiscordSDK | null = null;
+export function getDiscordSdk(): DiscordSDK {
+  if (!_discordSdk) {
+    _discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
+  }
+  return _discordSdk;
+}
+
+// Back-compat export used by WizardChat and useDiscordSdk hook
+export const discordSdk = {
+  get guildId()    { return getDiscordSdk().guildId; },
+  get channelId()  { return getDiscordSdk().channelId; },
+  get instanceId() { return getDiscordSdk().instanceId; },
+};
 
 /**
  * Call once on app mount. Performs the Activity handshake and
@@ -21,6 +35,8 @@ export const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
  * Discord REST or our own API with user context.
  */
 export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
+  const discordSdk = getDiscordSdk();
+
   // 1. Wait for the READY event from Discord client
   await discordSdk.ready();
   console.log('[aWizard] Discord SDK ready');
@@ -77,3 +93,4 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
   console.log('[aWizard] Authenticated as', auth.user?.username);
   return { accessToken: access_token };
 }
+
