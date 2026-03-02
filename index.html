@@ -8,6 +8,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Diagnostic: visible until React mounts and replaces #root content -->
+    <div id="diag" style="position:fixed;top:0;left:0;right:0;padding:12px;background:#060810;color:#e0f7ff;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;"></div>
+    <script>
+      var D = document.getElementById('diag');
+      function log(msg) { D.textContent += msg + '\n'; }
+      log('✅ HTML loaded');
+      window.onerror = function(m, s, l, c, e) { log('❌ ERROR: ' + m + ' at ' + s + ':' + l); };
+      window.addEventListener('unhandledrejection', function(ev) { log('❌ PROMISE: ' + ev.reason); });
+      // Check if React mounted within 5s
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        if (!root || root.children.length === 0) log('⚠️ React did NOT mount after 5s');
+        else log('✅ React mounted');
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
