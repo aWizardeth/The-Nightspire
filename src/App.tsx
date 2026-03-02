@@ -54,7 +54,13 @@ export default function App() {
         console.log(`[aWizard] Activity initialized for Discord user ${profile.id}`);
       } catch (err) {
         console.error('[aWizard]', err);
-        if (!cancelled) setError(String(err));
+        if (!cancelled) {
+          // Extract useful error info regardless of error shape
+          const msg = err instanceof Error
+            ? err.message + (err.stack ? '\n' + err.stack : '')
+            : JSON.stringify(err, null, 2);
+          setError(msg || 'Unknown error (no message)');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
