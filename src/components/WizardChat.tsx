@@ -33,58 +33,34 @@ export default function WizardChat({ user }: WizardChatProps) {
     setInput('');
     setLoading(true);
 
-    // Simulate network delay + mock responses for local dev
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
-
     try {
-      // Mock response system - replace with real API later
-      let reply = getMockWizardResponse(text);
+      // Call the real AI wizard API
+      const response = await fetch('/api/wizard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: text,
+          userId: user?.id 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.response || 'The wizard is silent... try again.';
       
       setMessages((prev) => [...prev, { role: 'wizard', content: reply }]);
-    } catch {
+    } catch (error) {
+      console.error('[WizardChat] API error:', error);
       setMessages((prev) => [
         ...prev,
-        { role: 'wizard', content: '⚠️ A curse disrupted the connection. Please try again.' },
+        { role: 'wizard', content: '⚠️ A curse disrupted the connection. The wizard will return shortly.' },
       ]);
     } finally {
       setLoading(false);
     }
-  }
-
-  // Mock wizard responses for local development
-  function getMockWizardResponse(message: string): string {
-    const msg = message.toLowerCase();
-    
-    if (msg.includes('battle') || msg.includes('fight')) {
-      return '⚔️ Ready for battle? The gym servers await your challenge! Visit the Battles tab to see available opponents.';
-    }
-    
-    if (msg.includes('nft') || msg.includes('magic bow')) {
-      return '🎴 Your NFT collection holds the key to your power! Connect your Chia wallet to view your Magic BOW NFTs.';
-    }
-    
-    if (msg.includes('leaderboard') || msg.includes('rank')) {
-      return '🏆 The leaderboard shows the mightiest wizards ranked by APS score. Will you climb to the top?';
-    }
-    
-    if (msg.includes('help') || msg.includes('what')) {
-      return '🧙 I can help with battles, NFTs, leaderboards, and general Arcane BOW questions. What would you like to know?';
-    }
-    
-    if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
-      return '✨ Greetings, fellow wizard! Welcome to the Arcane realm. How may I assist your magical journey today?';
-    }
-    
-    // Default responses
-    const defaults = [
-      '🔮 Interesting question! The mystical energies suggest great potential ahead.',
-      '⚡ The arcane winds whisper of adventures to come. Keep exploring!',
-      '🌟 Your magical journey is just beginning. What other secrets would you uncover?',
-      '🧪 The spell components are aligning... something powerful this way comes.',
-      '✨ Magic flows through Discord today! Feel free to ask me anything about the realm.',
-    ];
-    
-    return defaults[Math.floor(Math.random() * defaults.length)];
   }
 
   return (
@@ -105,7 +81,7 @@ export default function WizardChat({ user }: WizardChatProps) {
         ))}
         {loading && (
           <div className="px-3 py-2 rounded-lg text-sm bg-[var(--bg-secondary)] self-start animate-pulse text-[var(--text-muted)]">
-            🧙 Thinking…
+            🧙 Consulting the arcane energies…
           </div>
         )}
         <div ref={bottomRef} />
