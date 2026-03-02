@@ -92,6 +92,14 @@ export default function App() {
           <p style={{ color: 'var(--text-muted)' }} className="mb-6 leading-relaxed">
             This is a Discord Activity that must be launched from within Discord.
           </p>
+          {/* Debug: show the actual error so we can diagnose */}
+          <div
+            className="rounded-lg p-3 mb-4 text-left text-xs break-all"
+            style={{ background: 'rgba(255,0,0,0.1)', border: '1px solid var(--danger)', color: 'var(--danger)' }}
+          >
+            <p className="font-bold mb-1">Debug Error:</p>
+            <code>{error}</code>
+          </div>
           <div
             className="rounded-lg p-4 text-left text-sm"
             style={{ background: 'var(--bg-deep)', border: '1px solid var(--border-color)' }}
