@@ -43,51 +43,36 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
   });
 
   // 3. Exchange the code for a token via our backend
-  //    Use mock token when no backend is configured
   let access_token: string;
   
-  if (!import.meta.env.VITE_TOKEN_EXCHANGE_URL) {
-    // No backend configured - use mock token
-    console.log('[aWizard] No backend configured, using mock token');
-    access_token = 'mock_development_token_' + Date.now();
-  } else {
-    // Production token exchange
-    const tokenEndpoint = import.meta.env.VITE_TOKEN_EXCHANGE_URL as string;
-
-    const res = await fetch(tokenEndpoint, {
+  try {
+    // Call our Vercel serverless function for token exchange
+    const res = await fetch('/api/token', {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     });
 
     if (!res.ok) {
-      throw new Error(`[aWizard] Token exchange failed: ${res.status}`);
+      const errorText = await res.text();
+      throw new Error(`Token exchange failed: ${res.status} - ${errorText}`);
     }
 
     const result = (await res.json()) as { access_token: string };
     access_token = result.access_token;
-  }
-
-  // 4. Authenticate with the SDK 
-  // Note: Even with mock tokens, we attempt authentication to let Discord store auth state
-  try {
-    const auth = await discordSdk.commands.authenticate({ access_token });
-    
-    if (!auth) {
-      if (access_token.startsWith('mock_')) {
-        console.log('[aWizard] Mock token authentication failed (expected), continuing...');
-        return { accessToken: access_token };
-      }
-      throw new Error('[aWizard] Discord authentication failed');
-    }
-
-    console.log('[aWizard] Authenticated as', auth.user?.username);
-    return { accessToken: access_token };
+    console.log('[aWizard] Successfully exchanged code for access token');
   } catch (error) {
-    if (access_token.startsWith('mock_')) {
-      console.log('[aWizard] Mock token authentication failed (expected):', error);
-      return { accessToken: access_token };
-    }
-    throw error;
+    console.error('[aWizard] Token exchange error:', error);
+    throw new Error(`[aWizard] Authentication failed: ${error}`);
   }
+
+  // 4. Authenticate with the SDK using real access token
+  const auth = await discordSdk.commands.authenticate({ access_token });
+
+  if (!auth) {
+    throw new Error('[aWizard] Discord authentication failed');
+  }
+
+  console.log('[aWizard] Authenticated as', auth.user?.username);
+  return { accessToken: access_token };
 }
