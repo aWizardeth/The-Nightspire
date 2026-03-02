@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'react-qr-code';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
-import QRCodeModal from './QRCodeModal';
 import useBowActivityStore from '../store/bowActivityStore';
 
 interface WalletTabProps {
@@ -9,7 +9,8 @@ interface WalletTabProps {
 
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
-  const [showQRModal, setShowQRModal] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const {
     session,
@@ -18,16 +19,24 @@ export default function WalletTab({ userId }: WalletTabProps) {
     walletAddress,
     connect,
     disconnect,
+    cancelConnect,
     getNFTs,
     isConnecting,
     error
   } = useWalletConnect();
 
-  const handleConnect = async () => {
-    await connect();
-    if (pairingUri) {
-      setShowQRModal(true);
-    }
+  // Auto-show QR when pairing URI is available
+  useEffect(() => {
+    if (pairingUri) setShowQr(true);
+    else setShowQr(false);
+  }, [pairingUri]);
+
+  const handleCopy = () => {
+    if (!pairingUri) return;
+    navigator.clipboard.writeText(pairingUri).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const handleDisconnect = async () => {
@@ -43,6 +52,10 @@ export default function WalletTab({ userId }: WalletTabProps) {
     } catch (err) {
       console.error('[aWizard Wallet] Failed to load NFTs:', err);
     }
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
   };
 
   if (!userId) {
@@ -65,13 +78,6 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Show QR Code Modal */}
-      {showQRModal && pairingUri && (
-        <QRCodeModal 
-          uri={pairingUri} 
-          onClose={() => setShowQRModal(false)} 
-        />
-      )}
 
       {/* Header Banner */}
       <div
@@ -81,7 +87,21 @@ export default function WalletTab({ userId }: WalletTabProps) {
           border: '1px solid var(--border-color)',
         }}
       >
-        <h1 className="text-2xl font-bold mb-2 glow-text">🔐 Privacy-First Wallet</h1>
+        <div className="flex justify-between items-start mb-2">
+          <h1 className="text-2xl font-bold glow-text">🔐 Privacy-First Wallet</h1>
+          <button
+            onClick={handleRefresh}
+            className="px-3 py-1 rounded text-sm transition-colors"
+            style={{
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: 'var(--text-color)',
+            }}
+            title="Refresh Activity"
+          >
+            🔄 Refresh
+          </button>
+        </div>
         <p style={{ color: 'var(--text-muted)' }}>
           Your wallet connection is private and isolated from other Activity users
         </p>
@@ -114,33 +134,99 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
         {!session ? (
           <div>
-            <div
-              className="rounded-lg p-4 mb-4"
-              style={{
-                background: 'rgba(255,255,0,0.08)',
-                border: '1px solid rgba(255,255,0,0.3)',
-              }}
-            >
-              <p style={{ color: 'var(--text-color)' }}>
-                <strong>🔌 Disconnected</strong>
-              </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>
-                No active wallet connection found. Connect with Sage to battle!
-              </p>
-            </div>
+            {showQr && pairingUri ? (
+              <div className="space-y-4">
+                <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                  Scan with <strong style={{ color: 'var(--accent-primary)' }}>Sage mobile</strong>, or copy the URI into <strong style={{ color: 'var(--accent-primary)' }}>Sage desktop</strong>
+                </p>
+                
+                {/* QR Code */}
+                <div className="flex justify-center">
+                  <div className="bg-white p-4 rounded-lg">
+                    <QRCode value={pairingUri} size={200} />
+                  </div>
+                </div>
 
-            <button
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className="glow-button w-full"
-              style={{
-                backgroundColor: isConnecting ? '#666' : 'var(--accent-primary)',
-                color: '#000',
-                opacity: isConnecting ? 0.7 : 1,
-              }}
-            >
-              {isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
-            </button>
+                {/* Copy URI */}
+                <div>
+                  <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>WalletConnect URI</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={pairingUri}
+                      className="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate"
+                      style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-color)',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      onClick={handleCopy}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
+                      style={{
+                        backgroundColor: copied ? '#10b981' : 'var(--accent-secondary)',
+                        color: copied ? '#fff' : '#000',
+                      }}
+                    >
+                      {copied ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    In Sage desktop → WalletConnect → Paste URI
+                  </p>
+                </div>
+
+                {/* Cancel button */}
+                <button
+                  onClick={cancelConnect}
+                  className="w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255,100,100,0.5)',
+                    color: '#ff6666',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div
+                  className="rounded-lg p-4 mb-4"
+                  style={{
+                    background: 'rgba(255,255,0,0.08)',
+                    border: '1px solid rgba(255,255,0,0.3)',
+                  }}
+                >
+                  <p style={{ color: 'var(--text-color)' }}>
+                    <strong>🔌 Disconnected</strong>
+                  </p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>
+                    No active wallet connection found. Connect with Sage to battle!
+                  </p>
+                </div>
+
+                <button
+                  onClick={connect}
+                  disabled={isConnecting}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all"
+                  style={{
+                    background: isConnecting 
+                      ? 'rgba(100,100,100,0.5)' 
+                      : 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                    color: isConnecting ? 'var(--text-muted)' : '#000',
+                    border: 'none',
+                    cursor: isConnecting ? 'not-allowed' : 'pointer',
+                    opacity: isConnecting ? 0.6 : 1,
+                  }}
+                >
+                  {isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div>

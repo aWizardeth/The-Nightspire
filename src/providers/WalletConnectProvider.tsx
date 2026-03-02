@@ -68,6 +68,7 @@ export interface WalletConnectContextValue {
   walletAddress: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  cancelConnect: () => void;
   /** chip0002_signCoinSpends — returns the aggregated BLS signature hex */
   signCoinSpends: (coinSpends: CoinSpend[], partial?: boolean) => Promise<string>;
   /** chip0002_sendTransaction — broadcasts a fully-signed SpendBundle */
@@ -235,6 +236,13 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     }
   }, [session]);
 
+  const cancelConnect = useCallback(() => {
+    setPairingUri(null);
+    setIsConnecting(false);
+    setError(null);
+    console.log('[aWizard] WalletConnect pairing cancelled');
+  }, []);
+
   const signCoinSpends = useCallback(async (coinSpends: CoinSpend[], partial = false): Promise<string> => {
     const client = clientRef.current;
     if (!client || !session) throw new Error('No active WalletConnect session');
@@ -303,6 +311,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       walletAddress,
       connect,
       disconnect,
+      cancelConnect,
       signCoinSpends,
       sendTransaction,
       getAssetCoins,
