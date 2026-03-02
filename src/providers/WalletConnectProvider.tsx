@@ -116,6 +116,19 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   // Initialise SignClient once on mount
   useEffect(() => {
     let mounted = true;
+
+    // Validate required config
+    if (!WC_PROJECT_ID) {
+      const msg = 'VITE_WALLETCONNECT_PROJECT_ID environment variable is not set';
+      console.error('[aWizard]', msg);
+      setError(msg);
+      return;
+    }
+
+    console.log('[aWizard] Initializing WalletConnect SignClient...');
+    console.log('[aWizard] Project ID:', WC_PROJECT_ID ? `${WC_PROJECT_ID.slice(0, 8)}...` : 'MISSING');
+    console.log('[aWizard] Relay URL:', WC_RELAY_URL);
+
     SignClient.init({
       projectId: WC_PROJECT_ID,
       relayUrl:  WC_RELAY_URL,
@@ -128,6 +141,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     }).then((c) => {
       if (!mounted) return;
       clientRef.current = c;
+      console.log('[aWizard] ✅ SignClient initialized successfully');
 
       // Purge expired sessions
       const now = Math.floor(Date.now() / 1000);
@@ -165,8 +179,8 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       });
 
     }).catch((err) => {
-      console.error('[aWizard] Failed to initialize SignClient:', err);
-      setError(`Failed to initialize WalletConnect: ${err.message}`);
+      console.error('[aWizard] ❌ Failed to initialize SignClient:', err);
+      setError(`Failed to initialize WalletConnect: ${err.message || 'Unknown error'}`);
     });
 
     return () => { mounted = false; };
@@ -178,8 +192,8 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(async () => {
     const client = clientRef.current;
     if (!client) { 
-      console.error('[aWizard] WalletConnect client not ready');
-      setError('WalletConnect client not ready'); 
+      console.error('[aWizard] WalletConnect client not ready - check VITE_WALLETCONNECT_PROJECT_ID env var');
+      setError('WalletConnect client not ready. Check that VITE_WALLETCONNECT_PROJECT_ID is set in Vercel environment variables.'); 
       return; 
     }
     if (isConnecting) {
