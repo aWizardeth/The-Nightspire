@@ -5,6 +5,10 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    // WalletConnect deps reference Node.js globals — polyfill for browser
+    global: 'globalThis',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -15,7 +19,7 @@ export default defineConfig({
     // Allow Discord's iframe to embed this during development
     headers: {
       'Content-Security-Policy':
-        "frame-ancestors https://discord.com https://*.discord.com https://*.discordapp.com",
+        "frame-ancestors https://discord.com https://*.discord.com https://*.discordapp.com https://*.discordsays.com",
     },
   },
 });
