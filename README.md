@@ -97,6 +97,35 @@ npm run build
 # Upload dist/ folder to your static host
 ```
 
+## Current State (March 2, 2026)
+
+### ✅ Completed
+- **WalletConnect v2 Upgrade**: Migrated from deprecated v1 to @walletconnect/sign-client v2.23.7
+- **Inline QR Display**: Replaced modal popup with bow-app style inline QR code rendering
+- **Connection Controls**: Added refresh (reload Activity) and cancel (abort connection) buttons
+- **Copy URI**: Clipboard functionality with visual feedback for manual wallet pairing
+- **Discord SDK Integration**: Enhanced iframe context detection to prevent frame_id errors
+- **Debug Logging**: Extensive console logging throughout connection flow for diagnostics
+
+### 🔄 In Progress
+- **QR Code Display**: Initialization state now showing ("⚡ Initializing WalletConnect..."), debugging QR generation
+- **Sage Wallet Testing**: Connection flow with Chia Sage wallet pending QR display fix
+- **Session Management**: Verifying session persistence across Activity reloads
+
+### 📋 TODO
+- [ ] Fix QR code rendering after "Initializing WalletConnect..." state
+- [ ] Test complete wallet connection flow with Sage wallet
+- [ ] Verify CHIP-0002 methods (signCoinSpends, getNFTs, getAssetCoins)
+- [ ] Clean up debug console.log statements for production
+- [ ] Update Discord bot entry point (handler:2 → handler:1 for silent launches)
+- [ ] Test cross-platform battle flow (Discord ↔ bow-app ↔ gym-server)
+- [ ] Deploy production build to Vercel with verified WalletConnect flow
+
+### 🐛 Known Issues
+- QR code not appearing after initialization despite pairingUri generation
+- Connection state transitions need verification (connecting → approving → connected)
+- Large bundle size warning (853.71 kB) - may need code splitting
+
 ## Features
 
 ### 🧙 aWizard Chat
