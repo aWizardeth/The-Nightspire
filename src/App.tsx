@@ -23,6 +23,26 @@ export default function App() {
 
     async function init() {
       try {
+        // Skip Discord SDK in development if not in Discord context
+        const isDev = import.meta.env.DEV;
+        const isInDiscord = window.location.hostname !== 'localhost' && 
+                           window.location.hostname !== '127.0.0.1';
+
+        if (isDev && !isInDiscord) {
+          console.log('[aWizard] Development mode: skipping Discord SDK');
+          // Mock user for local testing
+          setUser({
+            id: 'dev_user_123',
+            username: 'DevTester',
+            discriminator: '0001',
+            avatar: null,
+            global_name: 'Developer Tester'
+          });
+          store.setAccessToken('mock_dev_token');
+          setLoading(false);
+          return;
+        }
+
         const { accessToken } = await setupDiscordSdk();
         if (cancelled) return;
         store.setAccessToken(accessToken);
