@@ -2,8 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, Re
 import SignClient from '@walletconnect/sign-client';
 import type { SessionTypes } from '@walletconnect/types';
 
-// Use the same WalletConnect Project ID as bow-app (verified working)
-const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? '219bfb172d753461929d17dacb9bec7e';
+const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 const WC_RELAY_URL = 'wss://relay.walletconnect.org';
 const CHIA_CHAIN = 'chia:mainnet';
 const CHIA_CHAINS = [CHIA_CHAIN, 'chia:mainnet', 'chia:testnet11'].filter(
