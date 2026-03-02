@@ -3,7 +3,6 @@
 // ─────────────────────────────────────────────────────────────────
 import { useState, useRef, useEffect } from 'react';
 import type { DiscordUser } from '../auth';
-import { sendWizardMessage, type WizardResponse } from '../lib/api';
 
 interface ChatMessage {
   role: 'user' | 'wizard';
@@ -16,7 +15,7 @@ interface WizardChatProps {
 
 export default function WizardChat({ user }: WizardChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'wizard', content: '🧙 Greetings, traveller! I am aWizard — your guide through the Arcane realm. Ask me anything about battles, NFTs, or the leaderboard.' },
+    { role: 'wizard', content: `🧙 Greetings${user?.global_name ? `, ${user.global_name}` : ', traveller'}! I am aWizard — your guide through the Arcane realm. Ask me anything about battles, NFTs, or the leaderboard.` },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
