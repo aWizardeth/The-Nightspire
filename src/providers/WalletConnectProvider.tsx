@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, Re
 import SignClient from '@walletconnect/sign-client';
 import type { SessionTypes } from '@walletconnect/types';
 
-const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+// Temporary: Use env var OR fallback to diagnosed working ID
+// TODO: Remove fallback once env var confirmed working in Vercel
+const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '219bfb172d753461929d17dacb9bec7e';
 const WC_RELAY_URL = 'wss://relay.walletconnect.org';
 const CHIA_CHAIN = 'chia:mainnet';
 const CHIA_CHAINS = [CHIA_CHAIN, 'chia:mainnet', 'chia:testnet11'].filter(
@@ -117,17 +119,17 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Validate required config
+    console.log('[aWizard] Initializing WalletConnect SignClient...');
+    console.log('[aWizard] Env var VITE_WALLETCONNECT_PROJECT_ID:', import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'SET' : 'MISSING');
+    console.log('[aWizard] Using Project ID:', WC_PROJECT_ID ? `${WC_PROJECT_ID.slice(0, 8)}... (${import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'from env' : 'fallback'})` : 'MISSING');
+    console.log('[aWizard] Relay URL:', WC_RELAY_URL);
+
     if (!WC_PROJECT_ID) {
-      const msg = 'VITE_WALLETCONNECT_PROJECT_ID environment variable is not set';
+      const msg = 'WalletConnect Project ID is missing (both env var and fallback)';
       console.error('[aWizard]', msg);
       setError(msg);
       return;
     }
-
-    console.log('[aWizard] Initializing WalletConnect SignClient...');
-    console.log('[aWizard] Project ID:', WC_PROJECT_ID ? `${WC_PROJECT_ID.slice(0, 8)}...` : 'MISSING');
-    console.log('[aWizard] Relay URL:', WC_RELAY_URL);
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
