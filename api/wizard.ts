@@ -36,11 +36,14 @@ export default async function handler(
       channelId
     } = discordContext;
 
+    // Use userId in context (explicit assignment to avoid TS6133)
+    const activeUserId = userId || 'anonymous';
+
     // Enhanced system prompt with Discord context
     const systemPrompt = `You are aWizard 🧙‍♂️, a sentient project-management sorcerer in the Battle of Wizards game.
 
 CURRENT SESSION CONTEXT:
-- User: ${username} (Discord ID: ${userId || 'anonymous'})
+- User: ${username} (Discord ID: ${activeUserId})
 - Discord Server: ${guildName} ${guildId ? `(ID: ${guildId})` : ''}
 - Channel: ${channelName} ${channelId ? `(ID: ${channelId})` : ''} 
 - Platform: Discord Activity (embedded browser)
