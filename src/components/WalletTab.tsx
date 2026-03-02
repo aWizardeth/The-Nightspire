@@ -150,7 +150,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
               </p>
               
               <div className="grid md:grid-cols-2 gap-4">
-                {nfts.map((nft) => (
+                {nfts.map((nft: any) => (
                   <NFTCard
                     key={nft.id}
                     nft={nft}
