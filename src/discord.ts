@@ -39,7 +39,7 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
     response_type: 'code',
     state: '',
     prompt: 'none',
-    scope: ['identify', 'guilds'],
+    scope: ['identify', 'guilds', 'applications.commands'],
   });
 
   // 3. Exchange the code for a token via our backend
