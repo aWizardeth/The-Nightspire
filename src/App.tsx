@@ -30,12 +30,15 @@ export default function App() {
     async function init() {
       try {
         // Skip Discord SDK in development if not in Discord context
-        const isDev = import.meta.env.DEV;
-        const isInDiscord = window.location.hostname !== 'localhost' && 
-                           window.location.hostname !== '127.0.0.1';
+        const urlParams = new URLSearchParams(window.location.search);
+        const devMode = urlParams.has('dev') || import.meta.env.DEV;
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
 
-        if (isDev && !isInDiscord) {
+        // Allow testing on Vercel with ?dev=true or on localhost
+        if (devMode || isLocalhost) {
           console.log('[aWizard] Development mode: skipping Discord SDK');
+          console.log('[aWizard] Access with ?dev=true to test features without Discord');
           // Mock user for local testing
           setUser({
             id: 'dev_user_123',
