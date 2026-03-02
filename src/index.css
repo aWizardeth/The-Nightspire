@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* ── Discord Activity dark palette ─────────────────────────────── */
+:root {
+  --bg-primary:   #1e1f22;
+  --bg-secondary: #2b2d31;
+  --bg-tertiary:  #313338;
+  --text-primary: #f2f3f5;
+  --text-muted:   #949ba4;
+  --accent:       #5865f2;
+  --accent-hover: #4752c4;
+  --success:      #23a55a;
+  --danger:       #f23f42;
+  --warning:      #f0b232;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'gg sans', 'Noto Sans', Helvetica, Arial, sans-serif;
+}
+
+/* ── Scrollbar styling (matches Discord) ──────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+}
