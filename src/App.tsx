@@ -5,6 +5,7 @@ import BattleTab from './components/BattleTab';
 import WalletTab from './components/WalletTab';
 import NftViewer from './components/NftViewer';
 import Leaderboard from './components/Leaderboard';
+import { WalletConnectProvider } from './providers/WalletConnectProvider';
 import { setupDiscordSdk } from './discord';
 import { fetchDiscordUser, type DiscordUser } from './auth';
 import useBowActivityStore from './store/bowActivityStore';
@@ -60,11 +61,16 @@ export default function App() {
       } catch (err) {
         console.error('[aWizard]', err);
         if (!cancelled) {
-          // Extract useful error info regardless of error shape
-          const msg = err instanceof Error
-            ? err.message + (err.stack ? '\n' + err.stack : '')
-            : JSON.stringify(err, null, 2);
-          setError(msg || 'Unknown error (no message)');
+          // Handle Discord detection error specifically
+          if (err instanceof Error && err.message.includes('not running in Discord context')) {
+            setError('This Activity must be opened from Discord using the /wiz command.');
+          } else {
+            // Extract useful error info regardless of error shape
+            const msg = err instanceof Error
+              ? err.message + (err.stack ? '\n' + err.stack : '')
+              : JSON.stringify(err, null, 2);
+            setError(msg || 'Unknown error (no message)');
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -143,8 +149,10 @@ export default function App() {
   };
 
   return (
-    <NavShell activePage={page} onNavigate={setPage} user={user}>
-      {pages[page]}
-    </NavShell>
+    <WalletConnectProvider>
+      <NavShell activePage={page} onNavigate={setPage} user={user}>
+        {pages[page]}
+      </NavShell>
+    </WalletConnectProvider>
   );
 }

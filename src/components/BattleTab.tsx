@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import useBowActivityStore from '../store/bowActivityStore';
-import { usePrivacyFirstWallet } from '../lib/privacyWallet';
+import { useWalletConnect } from '../providers/WalletConnectProvider';
 import { MOVES, getAvailableMoves } from '../lib/battleEngine';
 import type { MoveKind, BattleState } from '../store/bowActivityStore';
 
@@ -10,11 +10,13 @@ interface BattleTabProps {
 
 export default function BattleTab({ userId }: BattleTabProps) {
   const store = useBowActivityStore();
-  const { selectedFighter, isConnected } = usePrivacyFirstWallet(userId);
+  const { session } = useWalletConnect();
   const [selectedMove, setSelectedMove] = useState<MoveKind>(null);
   const [isSubmittingMove, setIsSubmittingMove] = useState(false);
   const [battleId, setBattleId] = useState<string>('');
 
+  const selectedFighter = store.wallet.selectedFighter;
+  const isConnected = !!session;
   const currentBattle = store.battle;
   const isInBattle = currentBattle && currentBattle.status !== 'finished';
   const isMyTurn = currentBattle && (

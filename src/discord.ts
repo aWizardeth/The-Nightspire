@@ -13,8 +13,44 @@ if (!DISCORD_CLIENT_ID) {
 
 // Lazy singleton — only instantiated when inside a Discord iframe context
 let _discordSdk: DiscordSDK | null = null;
+
+// Check if we're running in Discord's iframe context
+function isInDiscord(): boolean {
+  try {
+    // Check for Discord-specific URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasFrameId = urlParams.has('frame_id');
+    const hasInstanceId = urlParams.has('instance_id');
+    
+    // Check if we're in an iframe (Discord loads Activities in iframes)
+    const isIframe = window !== window.parent;
+    
+    // Check for Discord's parent origin
+    const isDiscordOrigin = document.referrer.includes('discord.com') || 
+                           document.referrer.includes('discordapp.com') ||
+                           window.location.ancestorOrigins?.[0]?.includes('discord.com');
+
+    console.log('[aWizard Discord] Environment check:', {
+      hasFrameId,
+      hasInstanceId,
+      isIframe,
+      isDiscordOrigin,
+      referrer: document.referrer,
+      search: window.location.search
+    });
+
+    return hasFrameId || hasInstanceId || (isIframe && isDiscordOrigin);
+  } catch (error) {
+    console.warn('[aWizard Discord] Environment check failed:', error);
+    return false;
+  }
+}
+
 export function getDiscordSdk(): DiscordSDK {
   if (!_discordSdk) {
+    if (!isInDiscord()) {
+      throw new Error('[aWizard Discord] Cannot initialize SDK - not running in Discord context. Missing frame_id parameter.');
+    }
     _discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
   }
   return _discordSdk;

@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { usePrivacyFirstWallet } from '../lib/privacyWallet';
+import { useState } from 'react';
+import { useWalletConnect } from '../providers/WalletConnectProvider';
+import QRCodeModal from './QRCodeModal';
 import useBowActivityStore from '../store/bowActivityStore';
 
 interface WalletTabProps {
@@ -8,36 +9,39 @@ interface WalletTabProps {
 
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
+  const [showQRModal, setShowQRModal] = useState(false);
+  
   const {
-    wallet,
-    isInitializing,
-    initializeWallet,
-    connectWallet,
-    disconnectWallet,
+    session,
+    pairingUri,
+    fingerprint,
+    walletAddress,
+    connect,
+    disconnect,
+    getNFTs,
     isConnecting,
-    isConnected,
-    nfts,
-    selectedFighter,
-  } = usePrivacyFirstWallet(userId);
+    error
+  } = useWalletConnect();
 
-  // Initialize wallet on mount
-  useEffect(() => {
-    if (userId && !wallet) {
-      console.log(`[aWizard Wallet] Preparing wallet for user ${userId}`);
+  const handleConnect = async () => {
+    await connect();
+    if (pairingUri) {
+      setShowQRModal(true);
     }
-  }, [userId, wallet]);
+  };
 
-  // Auto-initialize wallet when available
-  useEffect(() => {
-    if (wallet && !isInitializing && !isConnected && store.gui.accessToken) {
-      initializeWallet();
-    }
-  }, [wallet, isInitializing, isConnected, store.gui.accessToken, initializeWallet]);
+  const handleDisconnect = async () => {
+    await disconnect();
+    store.setSelectedFighter(null);
+  };
 
-  const handleFighterSelect = (nftFighter: any) => {
-    if (nftFighter.fighter) {
-      store.setSelectedFighter(nftFighter.fighter);
-      console.log(`[aWizard Wallet] Selected fighter: ${nftFighter.fighter.name}`);
+  const loadNFTs = async () => {
+    try {
+      const nfts = await getNFTs();
+      console.log('[aWizard Wallet] Loaded NFTs:', nfts.length);
+      // TODO: Process NFTs and extract fighters
+    } catch (err) {
+      console.error('[aWizard Wallet] Failed to load NFTs:', err);
     }
   };
 
@@ -61,6 +65,14 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Show QR Code Modal */}
+      {showQRModal && pairingUri && (
+        <QRCodeModal 
+          uri={pairingUri} 
+          onClose={() => setShowQRModal(false)} 
+        />
+      )}
+
       {/* Header Banner */}
       <div
         className="rounded-lg p-6"
@@ -88,172 +100,110 @@ export default function WalletTab({ userId }: WalletTabProps) {
       <div className="glow-card">
         <h2 className="text-lg font-semibold mb-4 glow-text">🔗 Connection Status</h2>
 
-        {isInitializing && (
+        {error && (
           <div
-            className="rounded-lg p-4"
+            className="rounded-lg p-4 mb-4"
             style={{
-              background: 'rgba(0,217,255,0.08)',
-              border: '1px solid rgba(0,217,255,0.3)',
+              background: 'rgba(255,68,68,0.1)',
+              border: '1px solid #ff4444',
             }}
           >
-            <p style={{ color: '#00d9ff' }} className="font-semibold">
-              🔄 Initializing wallet...
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-              Setting up WalletConnect for your private session
-            </p>
+            <p style={{ color: '#ff6b6b' }}>⚠️ Error: {error}</p>
           </div>
         )}
 
-        {!isConnected && !isInitializing && !isConnecting && (
-          <div className="space-y-4">
+        {!session ? (
+          <div>
             <div
-              className="rounded-lg p-4"
+              className="rounded-lg p-4 mb-4"
               style={{
-                background: 'rgba(255,170,0,0.08)',
-                border: '1px solid rgba(255,170,0,0.3)',
+                background: 'rgba(255,255,0,0.08)',
+                border: '1px solid rgba(255,255,0,0.3)',
               }}
             >
-              <p style={{ color: '#ffaa00' }} className="font-semibold">
-                ⚠️ Wallet not connected
+              <p style={{ color: 'var(--text-color)' }}>
+                <strong>🔌 Disconnected</strong>
               </p>
-              <p className="text-sm mt-1" style={{ color: 'rgba(255,170,0,0.7)' }}>
-                Connect your Sage wallet to view NFTs and participate in battles
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>
+                No active wallet connection found. Connect with Sage to battle!
               </p>
             </div>
-            <button onClick={connectWallet} className="w-full glow-btn">
-              🔗 Connect Chia Wallet
-            </button>
-          </div>
-        )}
 
-        {isConnecting && (
-          <div
-            className="rounded-lg p-4"
-            style={{
-              background: 'rgba(0,217,255,0.08)',
-              border: '1px solid rgba(0,217,255,0.3)',
-            }}
-          >
-            <p style={{ color: '#00d9ff' }} className="font-semibold">
-              📱 Connecting to wallet...
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-              Scan the QR code with your Sage wallet app
-            </p>
-            <div className="mt-3 text-xs" style={{ color: 'rgba(0,217,255,0.5)' }}>
-              ⏳ Waiting for wallet approval...
-            </div>
-          </div>
-        )}
-
-        {isConnected && (
-          <div className="space-y-4">
-            <div
-              className="rounded-lg p-4"
-              style={{
-                background: 'rgba(0,255,100,0.08)',
-                border: '1px solid rgba(0,255,100,0.3)',
-              }}
-            >
-              <p style={{ color: '#00ff64' }} className="font-semibold">
-                ✅ Wallet connected
-              </p>
-              <p className="text-sm mt-1" style={{ color: 'rgba(0,255,100,0.7)' }}>
-                Your wallet is privately connected to this Activity session
-              </p>
-              {store.wallet.fingerprint && (
-                <div
-                  className="mt-2 text-xs font-mono"
-                  style={{ color: 'rgba(0,255,100,0.6)' }}
-                >
-                  Fingerprint: {store.wallet.fingerprint}
-                </div>
-              )}
-            </div>
             <button
-              onClick={disconnectWallet}
-              className="px-4 py-2 rounded-lg font-semibold transition-colors cursor-pointer"
+              onClick={handleConnect}
+              disabled={isConnecting}
+              className="glow-button w-full"
               style={{
-                background: 'rgba(255,68,68,0.15)',
-                color: '#ff6b6b',
-                border: '1px solid rgba(255,68,68,0.3)',
+                backgroundColor: isConnecting ? '#666' : 'var(--accent-primary)',
+                color: '#000',
+                opacity: isConnecting ? 0.7 : 1,
               }}
             >
-              🔓 Disconnect Wallet
+              {isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
             </button>
+          </div>
+        ) : (
+          <div>
+            <div
+              className="rounded-lg p-4 mb-4"
+              style={{
+                background: 'rgba(0,255,0,0.08)',
+                border: '1px solid rgba(0,255,0,0.3)',
+              }}
+            >
+              <p style={{ color: 'var(--text-color)' }}>
+                <strong>✅ Connected</strong>
+              </p>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9em' }} className="mt-2">
+                {fingerprint && <p><strong>Wallet:</strong> {fingerprint}</p>}
+                {walletAddress && (
+                  <p><strong>Address:</strong> {walletAddress.slice(0, 16)}...</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={loadNFTs}
+                className="glow-button flex-1"
+                style={{
+                  backgroundColor: 'var(--accent-secondary)',
+                  color: '#000',
+                }}
+              >
+                🎯 Load Fighters
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="glow-button"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #ff6666',
+                  color: '#ff6666',
+                }}
+              >
+                🔌 Disconnect
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* NFT Fighters */}
-      {isConnected && (
-        <div className="glow-card">
-          <h2 className="text-lg font-semibold mb-4 glow-text">🧙 Your Fighter NFTs</h2>
-
-          {nfts.length === 0 ? (
-            <div
-              className="rounded-lg p-6 text-center"
-              style={{
-                background: 'var(--bg-deep)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div className="text-4xl mb-3">🎭</div>
-              <p className="font-semibold mb-2" style={{ color: 'var(--text-color)' }}>
-                No Fighter NFTs Found
-              </p>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                You need a Battle of Wizards Fighter NFT to participate in battles.
-                Check out the NFT marketplace or complete gym challenges to earn fighters!
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                Found {nfts.length} NFT(s). Select a fighter to use in battles:
-              </p>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {nfts.map((nft: any) => (
-                  <NFTCard
-                    key={nft.id}
-                    nft={nft}
-                    isSelected={selectedFighter?.name === nft.fighter?.name}
-                    onSelect={() => handleFighterSelect(nft)}
-                  />
-                ))}
-              </div>
-
-              {/* Default Fighter Option */}
-              <div
-                className="pt-4"
-                style={{ borderTop: '1px solid var(--border-color)' }}
-              >
-                <h3
-                  className="text-sm font-semibold mb-2"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Or use the default fighter:
-                </h3>
-                <DefaultFighterCard
-                  isSelected={selectedFighter?.name === 'Apprentice Wizard'}
-                  onSelect={() =>
-                    store.setSelectedFighter({
-                      source: 'user',
-                      name: 'Apprentice Wizard',
-                      stats: { hp: 100, atk: 15, def: 10, spd: 12 },
-                      strength: 'Arcane',
-                      weakness: 'Shadow',
-                      rarity: 'Common',
-                    })
-                  }
-                />
-              </div>
-            </div>
-          )}
+      {/* Fighter Selection (placeholder for now) */}
+      <div className="glow-card">
+        <h2 className="text-lg font-semibold mb-4 glow-text">⚔️ Select Fighter</h2>
+        <div
+          className="rounded-lg p-4 text-center"
+          style={{
+            background: 'rgba(100,100,100,0.1)',
+            border: '1px solid var(--border-color)',
+          }}
+        >
+          <p style={{ color: 'var(--text-muted)' }}>
+            📋 Connect wallet and load fighters to see your NFT collection
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Privacy Notice */}
       <div
@@ -273,170 +223,6 @@ export default function WalletTab({ userId }: WalletTabProps) {
           <li>• Wallet sessions are not persisted after Activity closes</li>
           <li>• State channels provide privacy-preserving battle proofs</li>
         </ul>
-      </div>
-    </div>
-  );
-}
-
-// ── NFT Card ─────────────────────────────────────────────────────
-
-interface NFTCardProps {
-  nft: any;
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-function NFTCard({ nft, isSelected, onSelect }: NFTCardProps) {
-  const fighter = nft.fighter;
-
-  if (!fighter) {
-    return (
-      <div
-        className="rounded-lg p-4"
-        style={{
-          background: 'var(--bg-deep)',
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}
-      >
-        <h3 className="font-semibold" style={{ color: 'var(--text-color)' }}>
-          {nft.name}
-        </h3>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Not a battleable fighter NFT
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="rounded-lg p-4 cursor-pointer transition-all"
-      style={{
-        background: isSelected ? 'rgba(0,217,255,0.1)' : 'var(--bg-card)',
-        border: isSelected
-          ? '2px solid var(--border-color)'
-          : '2px solid rgba(255,255,255,0.1)',
-      }}
-      onClick={onSelect}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold" style={{ color: 'var(--text-color)' }}>
-          {fighter.name}
-        </h3>
-        {isSelected && (
-          <div className="text-sm font-semibold" style={{ color: 'var(--border-color)' }}>
-            ✓ SELECTED
-          </div>
-        )}
-      </div>
-
-      <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-        <div>
-          {fighter.rarity} • {fighter.strength}
-        </div>
-        <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Weakness: {fighter.weakness}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2 text-xs">
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>HP</div>
-          <div style={{ color: '#ff6b6b' }}>{fighter.stats.hp}</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>ATK</div>
-          <div style={{ color: '#ff6600' }}>{fighter.stats.atk}</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>DEF</div>
-          <div style={{ color: '#00d9ff' }}>{fighter.stats.def}</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>SPD</div>
-          <div style={{ color: '#00ff64' }}>{fighter.stats.spd}</div>
-        </div>
-      </div>
-
-      {fighter.effect && (
-        <div
-          className="mt-3 text-xs rounded p-2"
-          style={{
-            background: 'rgba(255,170,0,0.1)',
-            color: '#ffaa00',
-          }}
-        >
-          <strong>Special:</strong> {fighter.effect}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Default Fighter Card ─────────────────────────────────────────
-
-interface DefaultFighterCardProps {
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-function DefaultFighterCard({ isSelected, onSelect }: DefaultFighterCardProps) {
-  return (
-    <div
-      className="rounded-lg p-4 cursor-pointer transition-all max-w-sm"
-      style={{
-        background: isSelected ? 'rgba(0,217,255,0.1)' : 'var(--bg-card)',
-        border: isSelected
-          ? '2px solid var(--border-color)'
-          : '2px solid rgba(255,255,255,0.1)',
-      }}
-      onClick={onSelect}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold" style={{ color: 'var(--text-color)' }}>
-          Apprentice Wizard
-        </h3>
-        {isSelected && (
-          <div className="text-sm font-semibold" style={{ color: 'var(--border-color)' }}>
-            ✓ SELECTED
-          </div>
-        )}
-      </div>
-
-      <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-        <div>Common • Arcane</div>
-        <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Weakness: Shadow
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2 text-xs">
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>HP</div>
-          <div style={{ color: '#ff6b6b' }}>100</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>ATK</div>
-          <div style={{ color: '#ff6600' }}>15</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>DEF</div>
-          <div style={{ color: '#00d9ff' }}>10</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold" style={{ color: 'var(--text-color)' }}>SPD</div>
-          <div style={{ color: '#00ff64' }}>12</div>
-        </div>
-      </div>
-
-      <div
-        className="mt-3 text-xs rounded p-2"
-        style={{
-          background: 'rgba(255,255,255,0.05)',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <strong>Basic:</strong> A starter fighter for new wizards entering the arena
       </div>
     </div>
   );
