@@ -43,18 +43,16 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
   });
 
   // 3. Exchange the code for a token via our backend
-  //    In development, we can bypass this with a mock token
-  const isDev = import.meta.env.DEV;
+  //    Use mock token when no backend is configured
   let access_token: string;
   
-  if (isDev && !import.meta.env.VITE_TOKEN_EXCHANGE_URL) {
-    // Development bypass - use mock token
-    console.log('[aWizard] Using mock token for local development');
+  if (!import.meta.env.VITE_TOKEN_EXCHANGE_URL) {
+    // No backend configured - use mock token
+    console.log('[aWizard] No backend configured, using mock token');
     access_token = 'mock_development_token_' + Date.now();
   } else {
     // Production token exchange
-    const tokenEndpoint =
-      (import.meta.env.VITE_TOKEN_EXCHANGE_URL as string) ?? '/.proxy/api/token';
+    const tokenEndpoint = import.meta.env.VITE_TOKEN_EXCHANGE_URL as string;
 
     const res = await fetch(tokenEndpoint, {
       method: 'POST', 
@@ -70,9 +68,9 @@ export async function setupDiscordSdk(): Promise<{ accessToken: string }> {
     access_token = result.access_token;
   }
 
-  // 4. Authenticate with the SDK (skip in dev mode if using mock token)
-  if (isDev && access_token.startsWith('mock_')) {
-    console.log('[aWizard] Skipping SDK authentication in development');
+  // 4. Authenticate with the SDK (skip if using mock token)
+  if (access_token.startsWith('mock_')) {
+    console.log('[aWizard] Skipping SDK authentication with mock token');
     return { accessToken: access_token };
   }
 
