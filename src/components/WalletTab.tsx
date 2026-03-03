@@ -219,16 +219,41 @@ export default function WalletTab({ userId }: WalletTabProps) {
                 </p>
               </div>
             ) : isConnecting && !pairingUri ? (
-              <div className="rounded-lg p-4 mb-4" style={{
-                background: 'rgba(0,217,255,0.08)',
-                border: '1px solid rgba(0,217,255,0.3)',
-              }}>
-                <p style={{ color: '#00d9ff' }} className="font-semibold">
-                  ⚡ Generating pairing code...
+              <div className="space-y-4">
+                <div className="rounded-lg p-4" style={{
+                  background: 'rgba(0,217,255,0.08)',
+                  border: '1px solid rgba(0,217,255,0.3)',
+                }}>
+                  <p style={{ color: '#00d9ff' }} className="font-semibold">
+                    ⚡ Generating pairing code...
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
+                    Preparing QR code for wallet connection
+                  </p>
+                </div>
+
+                {/* Test QR — verifies QR rendering works in Discord iframe */}
+                <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+                  🧪 Test QR (verifying iframe rendering):
                 </p>
-                <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-                  Preparing QR code for wallet connection
-                </p>
+                <div className="flex justify-center">
+                  <div className="bg-white p-4 rounded-lg">
+                    <QRCode value="wc:test-qr-rendering-in-discord-iframe@2" size={200} />
+                  </div>
+                </div>
+
+                {/* Cancel button */}
+                <button
+                  onClick={cancelConnect}
+                  className="w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255,100,100,0.5)',
+                    color: '#ff6666',
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             ) : showQr && pairingUri ? (
               <div className="space-y-4">
