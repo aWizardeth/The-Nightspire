@@ -105,6 +105,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
       // Enrich each NFT with metadata from metadataUris[0] (image + attributes)
       const enriched = await fetchNftMetadata(raw);
       console.log('[aWizard Wallet] Metadata fetched for', enriched.filter(n => n.metadata).length, '/', enriched.length, 'NFTs');
+      if (enriched[0]?.metadata) console.log('[aWizard Wallet] First NFT metadata:', enriched[0].metadata);
       const parsed = parseWalletNfts(enriched);
       store.setNfts(parsed);
       console.log('[aWizard Wallet] Parsed fighters:', parsed.length, 'images:', parsed.map(n => n.image));

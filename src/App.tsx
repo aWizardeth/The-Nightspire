@@ -3,16 +3,13 @@ import NavShell from './components/NavShell';
 import WizardChat from './components/WizardChat';
 import BattleTab from './components/BattleTab';
 import WalletTab from './components/WalletTab';
-import NftViewer from './components/NftViewer';
-import Leaderboard from './components/Leaderboard';
 import ChellyzTab from './components/ChellyzTab';
-import LobbyTab from './components/LobbyTab';
 import { WalletConnectProvider } from './providers/WalletConnectProvider';
 import { setupDiscordSdk } from './discord';
 import { fetchDiscordUser, type DiscordUser } from './auth';
 import useBowActivityStore from './store/bowActivityStore';
 
-type Page = 'battle' | 'wallet' | 'chat' | 'nft' | 'leaderboard' | 'chellyz' | 'lobby';
+type Page = 'battle' | 'wallet' | 'chat' | 'chellyz';
 
 export default function App() {
   const [page, setPage] = useState<Page>('battle');
@@ -149,10 +146,7 @@ export default function App() {
     battle: <BattleTab userId={user?.id || ''} />,
     wallet: <WalletTab userId={user?.id || ''} />,
     chat: <WizardChat user={user} />,
-    nft: <NftViewer />,
-    leaderboard: <Leaderboard />,
     chellyz: <ChellyzTab userId={user?.id || ''} userName={user?.global_name ?? user?.username ?? 'Wizard'} />,
-    lobby:   <LobbyTab userId={user?.id || ''} />,
   };
 
   return (

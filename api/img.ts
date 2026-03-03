@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const upstream = await fetch(decoded, {
-      headers: { Accept: 'image/*,*/*' },
+      headers: { Accept: '*/*' },  // must accept JSON (NFT metadata) as well as images
       // 10-second timeout via AbortSignal
       signal: AbortSignal.timeout(10_000),
     });

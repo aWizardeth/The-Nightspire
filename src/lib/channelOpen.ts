@@ -437,8 +437,9 @@ export async function createPvpChannel(
   session:       any,
   peerId:        string,
   stakeOverride?: bigint,
+  inviteCodeOverride?: string,
 ): Promise<{ channel: StateChannel; inviteCode: string }> {
-  const inviteCode  = generateInviteCode();
+  const inviteCode  = inviteCodeOverride ?? generateInviteCode();
   // Placeholder party_b address until opponent provides theirs
   const pendingPartyB = 'xch1pending' + '0'.repeat(53);
 

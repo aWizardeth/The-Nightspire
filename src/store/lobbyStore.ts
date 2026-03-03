@@ -1,132 +1,144 @@
 /**
  * lobbyStore.ts
- * Zustand store for state channel lobby lifecycle.
+ * PvP lobby lifecycle — deferred signing, persisted across reconnects.
  *
  * Step flow:
- *   Gym:  idle → creating → signing → broadcasting → open
- *   PvP:  idle → creating → signing → waiting_peer  (party_a)
- *         idle → signing  → broadcasting → open     (party_b join)
- *   Any:  * → error  (on failure)
+ *   Creator:  idle → pending → signing → waiting_peer → open
+ *   Joiner:   idle → pending → signing → broadcasting → open
+ *   Any:      * → error
+ *
+ * createLobby / joinLobby are synchronous — they just set local state.
+ * confirmReady is async — triggers wallet signature + state channel open.
+ *
+ * State is persisted to localStorage (key: 'bow-lobby-v1') so a user who
+ * disconnects can reopen the Activity and resume their pending channel.
+ * If signing was interrupted mid-flow, the step reverts to 'pending' on
+ * rehydration so the user can retry without re-entering the lobby.
  */
 
 import { create } from 'zustand';
-import type { StateChannel, BondType } from '../lib/stateChannel';
-import { openGymChannel, createPvpChannel, joinPvpChannel } from '../lib/channelOpen';
-import type { Fighter } from '../lib/fighters';
+import { persist } from 'zustand/middleware';
+import type { StateChannel } from '../lib/stateChannel';
+import { createPvpChannel, joinPvpChannel, generateInviteCode } from '../lib/channelOpen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type LobbyStep =
   | 'idle'
-  | 'creating'      // generating channel record + keys
+  | 'pending'       // lobby created/joined locally; waiting for ready confirmation
   | 'signing'       // awaiting chip0002_signCoinSpends from Sage wallet
-  | 'broadcasting'  // submitting funding bundle to gym-server or tracker relay
-  | 'waiting_peer'  // PvP party_a: waiting for opponent to countersign
-  | 'open'          // channel coin broadcast (or confirmed); battle can begin
+  | 'broadcasting'  // submitting funding bundle to tracker relay (joiner path)
+  | 'waiting_peer'  // party_a signed; waiting for party_b to countersign
+  | 'open'          // channel locked; battle can begin
   | 'error';
 
-export type LobbyMode = 'gym' | 'pvp';
+export type LobbyRole = 'creator' | 'joiner';
 
 interface LobbyStore {
-  mode:         LobbyMode;
-  step:         LobbyStep;
-  channel:      StateChannel | null;
-  inviteCode:   string | null;
-  errorMsg:     string | null;
-  selectedTier: number;
-  bondType:     BondType;   // 'mojo' (default) | 'cat' | 'nft' (future)
-
-  // ── Setters ─────────────────────────────────────────────────────────────────────
-  setMode: (mode: LobbyMode) => void;
-  setTier: (tier: number) => void;
-  setBondType: (type: BondType) => void;
-
-  // ── Actions ──────────────────────────────────────────────────────────────
+  step:       LobbyStep;
+  role:       LobbyRole | null;
+  channel:    StateChannel | null;
+  inviteCode: string | null;
+  errorMsg:   string | null;
+  /** Unix ms timestamp of the last meaningful state change — for future timeout logic. */
+  lastSeen:   number | null;
 
   /**
-   * Open a PvE Gym lobby (party_a only, gym-server auto-countersigns).
-   * @param walletAddress  xch1... player address
-   * @param session        WalletConnect session (bowActivityStore.wallet.session)
-   * @param fighter        selected fighter (for UI display; stats stay local)
+   * Create a new PvP lobby locally — generates invite code, no wallet yet.
+   * Share the code with the opponent; call confirmReady when both are present.
    */
-  openGymLobby: (walletAddress: string, session: any, fighter: Fighter) => Promise<void>;
+  createLobby: () => void;
+
+  /** Join an existing PvP lobby by invite code — no signing yet. */
+  joinLobby: (inviteCode: string) => void;
 
   /**
-   * Create a PvP lobby as party_a.
-   * Returns invite code via store.inviteCode for sharing in Discord.
-   * @param walletAddress  xch1... player address
-   * @param session        WalletConnect session
-   * @param peerId         Discord user ID (used as relay identity)
+   * Confirm ready → wallet signature → open state channel on-chain.
+   * Both parties call this independently when ready to lock funds.
    */
-  openPvpLobby: (walletAddress: string, session: any, peerId: string) => Promise<void>;
+  confirmReady: (walletAddress: string, session: any, peerId: string) => Promise<void>;
 
-  /**
-   * Join an existing PvP lobby as party_b.
-   * @param inviteCode     6-char code from the lobby creator
-   * @param walletAddress  xch1... player address
-   * @param session        WalletConnect session
-   * @param peerId         Discord user ID
-   */
-  joinPvpLobby: (inviteCode: string, walletAddress: string, session: any, peerId: string) => Promise<void>;
+  /** Leave the lobby without signing (returns to idle). */
+  exitLobby: () => void;
 
-  /** Reset to idle — clears channel, invite code, and error. */
+  /** Reset to idle. */
   reset: () => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useLobbyStore = create<LobbyStore>()((set, get) => ({
-  mode:         'gym',
-  step:         'idle',
-  channel:      null,
-  inviteCode:   null,
-  errorMsg:     null,
-  selectedTier: 1,
-  bondType:     'mojo',
+export const useLobbyStore = create<LobbyStore>()(
+  persist(
+    (set, get) => ({
+      step:       'idle',
+      role:       null,
+      channel:    null,
+      inviteCode: null,
+      errorMsg:   null,
+      lastSeen:   null,
 
-  setMode: (mode) => set({ mode, step: 'idle', channel: null, inviteCode: null, errorMsg: null }),
-  setTier: (tier) => set({ selectedTier: tier }),
-  setBondType: (type) => set({ bondType: type }),
+      createLobby: () => {
+        const code = generateInviteCode();
+        console.log(`[aWizard] PvP lobby created (code: ${code})`);
+        set({ step: 'pending', role: 'creator', inviteCode: code, channel: null, errorMsg: null, lastSeen: Date.now() });
+      },
 
-  openGymLobby: async (walletAddress, session, _fighter) => {
-    const { selectedTier, bondType } = get();
-    set({ step: 'creating', errorMsg: null, channel: null });
-    try {
-      set({ step: 'signing' });
-      const channel = await openGymChannel(walletAddress, session, selectedTier, walletAddress, undefined, bondType);
-      set({ step: 'broadcasting' });
-      set({ step: channel.status === 'locked' ? 'open' : 'broadcasting', channel });
-    } catch (err) {
-      set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });
-    }
-  },
+      joinLobby: (inviteCode) => {
+        console.log(`[aWizard] Joining PvP lobby (code: ${inviteCode})`);
+        set({ step: 'pending', role: 'joiner', inviteCode, channel: null, errorMsg: null, lastSeen: Date.now() });
+      },
 
-  openPvpLobby: async (walletAddress, session, peerId) => {
-    set({ step: 'creating', errorMsg: null, channel: null });
-    try {
-      set({ step: 'signing' });
-      const { channel, inviteCode } = await createPvpChannel(walletAddress, session, peerId);
-      set({ step: 'waiting_peer', channel, inviteCode });
-    } catch (err) {
-      set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });
-    }
-  },
+      confirmReady: async (walletAddress, session, peerId) => {
+        const { role, inviteCode } = get();
+        set({ step: 'signing', errorMsg: null, lastSeen: Date.now() });
+        try {
+          if (role === 'creator') {
+            const { channel, inviteCode: confirmedCode } = await createPvpChannel(
+              walletAddress, session, peerId, undefined, inviteCode ?? undefined,
+            );
+            set({ step: 'waiting_peer', channel, inviteCode: confirmedCode, lastSeen: Date.now() });
+          } else {
+            if (!inviteCode) throw new Error('No invite code — rejoin the lobby');
+            const channel = await joinPvpChannel(inviteCode, walletAddress, session, peerId);
+            set({
+              step:     channel.status === 'locked' ? 'open' : 'broadcasting',
+              channel,
+              lastSeen: Date.now(),
+            });
+          }
+        } catch (err) {
+          set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });
+        }
+      },
 
-  joinPvpLobby: async (inviteCode, walletAddress, session, peerId) => {
-    set({ step: 'signing', errorMsg: null, channel: null, inviteCode });
-    try {
-      const channel = await joinPvpChannel(inviteCode, walletAddress, session, peerId);
-      set({
-        step:    channel.status === 'locked' ? 'open' : 'broadcasting',
-        channel,
-        inviteCode,
-      });
-    } catch (err) {
-      set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  reset: () => set({ step: 'idle', channel: null, inviteCode: null, errorMsg: null }),
-}));
+      exitLobby: () => set({ step: 'idle', role: null, channel: null, inviteCode: null, errorMsg: null, lastSeen: null }),
+      reset:     () => set({ step: 'idle', role: null, channel: null, inviteCode: null, errorMsg: null, lastSeen: null }),
+    }),
+    {
+      name: 'bow-lobby-v1',
+      // Only persist the fields needed to resume — never persist runtime errors
+      partialize: (state) => ({
+        step:       state.step,
+        role:       state.role,
+        channel:    state.channel,
+        inviteCode: state.inviteCode,
+        lastSeen:   state.lastSeen,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Signing was mid-flight when the page closed — revert to pending so the user
+        // can see the lobby and click "I'm Ready" again. The invite code is preserved.
+        if (state.step === 'signing' || state.step === 'broadcasting') {
+          state.step = 'pending';
+        }
+        // Never restore a stale error
+        state.errorMsg = null;
+        if (state.step !== 'idle') {
+          console.log(`[aWizard] Lobby restored from storage: step=${state.step} code=${state.inviteCode}`);
+        }
+      },
+    },
+  ),
+);
 
 export default useLobbyStore;

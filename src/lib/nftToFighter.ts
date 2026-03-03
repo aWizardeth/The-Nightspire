@@ -130,7 +130,16 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
       (Array.isArray(nft['data_uris']) ? ((nft['data_uris'] as string[])[0]) : undefined);
     const image = resolveImageUri(rawImg);
 
-    const rawAttrsForCollection = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
+    // Merge attributes from:
+    //   1. nft.attributes        — direct from chia_getNfts (usually empty)
+    //   2. nft.metadata.attributes — populated by fetchNftMetadata from metadataUris[0]
+    // This is the primary source of HP/ATK/DEF/SPD/STR/WEA traits.
+    const metaAttributes = (nft.metadata as Record<string, unknown> | undefined)?.attributes;
+    const rawAttrsForCollection: AttrArray = [
+      ...(Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : []),
+      ...(Array.isArray(metaAttributes)  ? (metaAttributes  as AttrArray) : []),
+    ];
+    console.log(`[aWizard] NFT ${id} traits from metadata:`, rawAttrsForCollection.length, rawAttrsForCollection);
     const collectionNft: CollectionNftData = {
       nftId:        id,
       name:         displayName,
@@ -210,7 +219,12 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
     (Array.isArray(nft['data_uris']) ? ((nft['data_uris'] as string[])[0]) : undefined);
   const image = resolveImageUri(rawImage);
 
-  const rawAttrs = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
+  const rawAttrs: AttrArray = [
+    ...(Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : []),
+    ...(Array.isArray((nft.metadata as Record<string, unknown> | undefined)?.attributes)
+      ? ((nft.metadata as Record<string, unknown>).attributes as AttrArray)
+      : []),
+  ];
   const attributes: NFTData['attributes'] = [
     { trait_type: 'tier',   value: tierRaw ?? rarity },
     { trait_type: 'wins',   value: wins },
