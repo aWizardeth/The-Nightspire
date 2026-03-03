@@ -5,7 +5,8 @@ import type { SessionTypes } from '@walletconnect/types';
 // Temporary: Use env var OR fallback to diagnosed working ID
 // TODO: Remove fallback once env var confirmed working in Vercel
 const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '219bfb172d753461929d17dacb9bec7e';
-const WC_RELAY_URL = 'wss://relay.walletconnect.org';
+// Let SignClient use its default relay URL (WalletConnect rebranded to Reown,
+// the hardcoded wss://relay.walletconnect.org may be deprecated)
 const CHIA_CHAIN = 'chia:mainnet';
 const CHIA_CHAINS = [CHIA_CHAIN, 'chia:mainnet', 'chia:testnet11'].filter(
   (v, i, a) => a.indexOf(v) === i,
@@ -125,7 +126,6 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     console.log('[aWizard] Initializing WalletConnect SignClient...');
     console.log('[aWizard] Env var VITE_WALLETCONNECT_PROJECT_ID:', import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'SET' : 'MISSING');
     console.log('[aWizard] Using Project ID:', WC_PROJECT_ID ? `${WC_PROJECT_ID.slice(0, 8)}... (${import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'from env' : 'fallback'})` : 'MISSING');
-    console.log('[aWizard] Relay URL:', WC_RELAY_URL);
 
     if (!WC_PROJECT_ID) {
       const msg = 'WalletConnect Project ID is missing (both env var and fallback)';
@@ -136,7 +136,6 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
-      relayUrl:  WC_RELAY_URL,
       metadata:  {
         name:        'Battle of Wizards - Discord Activity',
         description: 'aWizard Discord Activity — PvE/PvP battles with soulbound NFTs',
