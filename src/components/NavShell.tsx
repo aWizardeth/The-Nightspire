@@ -9,7 +9,7 @@ import QRCode from 'react-qr-code';
 import type { DiscordUser } from '../auth';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 
-type Page = 'battle' | 'wallet' | 'chat' | 'nft' | 'leaderboard' | 'chellyz';
+type Page = 'battle' | 'wallet' | 'chat' | 'nft' | 'leaderboard' | 'chellyz' | 'lobby';
 
 interface NavShellProps {
   activePage: Page;
@@ -21,6 +21,7 @@ interface NavShellProps {
 const tabs: { id: Page; icon: string; label: string }[] = [
   { id: 'battle',      icon: '⚔️',  label: 'Battle'  },
   { id: 'wallet',      icon: '🔮',  label: 'Wallet'  },
+  { id: 'lobby',       icon: '🏟',  label: 'Lobby'   },
   { id: 'chat',        icon: '🧙',  label: 'Wizard'  },
   { id: 'nft',         icon: '🃏',  label: 'NFTs'    },
   { id: 'leaderboard', icon: '🏆',  label: 'Ranks'   },
