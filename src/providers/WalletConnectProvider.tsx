@@ -172,7 +172,9 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       console.log('[aWizard] Discord iframe — relayUrl:', relayUrl);
 
       // ── Connectivity probe: raw WebSocket test before SignClient ──
-      // Result is surfaced in relayProbeStatus for on-screen display.
+      // 1006 on a bare probe (no auth params) is EXPECTED and normal.
+      // If SignClient publishes also fail, the issue is WalletConnect Cloud domain restrictions.
+      let probeOpened = false;
       const probeWs = new WebSocket(relayUrl);
       const probeTimer = setTimeout(() => {
         probeWs.close();
@@ -182,21 +184,24 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       }, 5000);
       probeWs.addEventListener('open', () => {
         clearTimeout(probeTimer);
-        console.log('[aWizard] ✅ Relay probe: OPEN');
+        probeOpened = true;
+        console.log('[aWizard] ✅ Relay probe: OPEN — proxy path works');
         setRelayProbeStatus(true);
         probeWs.close();
       });
       probeWs.addEventListener('error', () => {
         clearTimeout(probeTimer);
-        const msg = 'WebSocket ERROR — proxy path unreachable (check URL Mapping in Discord Dev Portal)';
-        console.error('[aWizard] ❌ Relay probe:', msg);
-        setRelayProbeStatus(msg);
+        const msg = `WebSocket ERROR — Discord URL Mapping may be missing.\nCheck: Discord Dev Portal → Activities → URL Mappings → /walletconnect → relay.walletconnect.com`;
+        console.error('[aWizard] ❌ Relay probe error');
+        if (!probeOpened) setRelayProbeStatus(msg);
       });
       probeWs.addEventListener('close', (e) => {
         clearTimeout(probeTimer);
-        if (e.code !== 1000 && relayProbeStatus === null) {
-          const msg = `Closed code=${e.code} reason="${e.reason || 'none'}" — relay may be rejecting origin. Add *.discordsays.com to WalletConnect Cloud allowed domains.`;
-          console.error('[aWizard] ❌ Relay probe:', msg);
+        if (!probeOpened) {
+          // 1006 = abnormal close (relay rejected bare connection — expected without auth params)
+          // If SignClient publish also fails, add exact origin to WalletConnect Cloud allowed domains
+          const msg = `Probe closed code=${e.code}${e.reason ? ` reason="${e.reason}"` : ''} — 1006 on bare probe is normal (no auth). If publish fails: add ${window.location.hostname} to WalletConnect Cloud → Allowed Domains.`;
+          console.warn('[aWizard] ⚠️ Relay probe close:', e.code, e.reason || '(no reason)');
           setRelayProbeStatus(msg);
         }
       });
@@ -218,6 +223,22 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       clientRef.current = c;
       setClientReady(true);
       console.log('[aWizard] ✅ SignClient initialized successfully');
+
+      // ── Hook into relay transport errors for on-screen diagnosis ──
+      try {
+        // @ts-expect-error — internal relayer event emitter
+        c.core?.relayer?.on('relayer_error', (e: unknown) => {
+          const msg = `relay error: ${JSON.stringify(e)}`;
+          console.error('[aWizard] ❌ Relayer error:', e);
+          setRelayProbeStatus(msg);
+        });
+        // @ts-expect-error — core transport events
+        c.core?.relayer?.provider?.connection?.on('error', (e: unknown) => {
+          const msg = `transport error: ${JSON.stringify(e)}`;
+          console.error('[aWizard] ❌ Relay transport error:', e);
+          setRelayProbeStatus(msg);
+        });
+      } catch { /* non-fatal — internal API may vary */ }
 
       // Purge expired sessions
       const now = Math.floor(Date.now() / 1000);

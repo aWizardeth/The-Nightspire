@@ -162,14 +162,20 @@ export default function WalletTab({ userId }: WalletTabProps) {
       {/* Relay probe status — always visible so we can diagnose relay issues without DevTools */}
       <div className="glow-card" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
         <div style={{ color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>🔌 Relay Probe</div>
-        <div style={{ color: relayProbeStatus === true ? '#00ff88' : relayProbeStatus === null ? '#aaa' : '#ff6b6b' }}>
+        <div style={{ color: relayProbeStatus === true ? '#00ff88' : relayProbeStatus === null ? '#aaa' : '#ff6b6b', wordBreak: 'break-all' }}>
           {relayProbeStatus === null && '⏳ pending…'}
           {relayProbeStatus === true && '✅ WebSocket OPEN — proxy routing works'}
-          {typeof relayProbeStatus === 'string' && `❌ ${relayProbeStatus}`}
+          {typeof relayProbeStatus === 'string' && relayProbeStatus}
         </div>
-        <div style={{ color: '#888', marginTop: '4px' }}>
+        <div style={{ color: '#888', marginTop: '4px', wordBreak: 'break-all' }}>
           relayUrl: wss://{typeof window !== 'undefined' ? window.location.hostname : '?'}/walletconnect
         </div>
+        {typeof relayProbeStatus === 'string' && relayProbeStatus.includes('code=1006') && (
+          <div style={{ color: '#ffaa00', marginTop: '6px', lineHeight: '1.5' }}>
+            <strong>1006 on bare probe = normal.</strong> If publish still fails:<br/>
+            Add <strong>{typeof window !== 'undefined' ? window.location.hostname : '?'}</strong> to WalletConnect Cloud → Allowed Domains
+          </div>
+        )}
       </div>
 
       {/* Debug Panel — hidden by default, enable with VITE_DEBUG=true */}
