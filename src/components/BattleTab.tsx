@@ -58,6 +58,13 @@ function InviteCode({ code }: { code: string }) {
 
 // ─── PvP Lobby Panel ──────────────────────────────────────────────────────────
 
+interface PublicLobbyEntry {
+  code:      string;
+  hostId:    string;
+  hostName:  string;
+  createdAt: number;
+}
+
 function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: boolean }) {
   const lobby = useLobbyStore();
   const {
@@ -65,9 +72,26 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
     connect, cancelConnect, pairingUri, isConnecting, clientReady,
   } = useWalletConnect();
 
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode]           = useState('');
+  const [makePublic, setMakePublic]       = useState(false);
+  const [publicLobbies, setPublicLobbies] = useState<PublicLobbyEntry[]>([]);
+  const [loadingBrowser, setLoadingBrowser] = useState(false);
+
   const address   = walletAddress ?? (fingerprint ? `xch1${fingerprint}` : null);
   const hasWallet = !!session;
+
+  // Fetch public lobbies whenever we're on the idle screen
+  useEffect(() => {
+    if (lobby.step !== 'idle') return;
+    let cancelled = false;
+    setLoadingBrowser(true);
+    fetch('/api/lobbies')
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setPublicLobbies(data.lobbies ?? []); })
+      .catch(() => { if (!cancelled) setPublicLobbies([]); })
+      .finally(() => { if (!cancelled) setLoadingBrowser(false); });
+    return () => { cancelled = true; };
+  }, [lobby.step]);
 
   const handleConfirmReady = () => {
     if (!address) return;
@@ -85,20 +109,41 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
 
   // ── Idle: create / join ────────────────────────────────────────────────────
   if (lobby.step === 'idle') {
+    const hostName = (walletAddress ?? fingerprint) ? `${(walletAddress ?? fingerprint)!.slice(0, 8)}…` : 'Anonymous Wizard';
     return (
       <div className="rounded-xl p-3 space-y-3"
         style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.22)' }}>
+
+        {/* Header */}
         <div className="flex items-center gap-2">
           <span className="text-base">🧙</span>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-color)' }}>PvP 1v1 Lobby</h3>
           <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>· Chia state channel</span>
         </div>
-        <button
-          onClick={lobby.createLobby}
-          className="w-full py-2 rounded-lg text-xs font-bold transition-all"
-          style={{ background: 'rgba(139,92,246,0.18)', border: '1px solid rgba(139,92,246,0.5)', color: '#c4b5fd' }}>
-          + Create Lobby
-        </button>
+
+        {/* Public toggle + Create */}
+        <div className="space-y-2">
+          <button
+            onClick={() => lobby.createLobby(makePublic, userId, hostName)}
+            className="w-full py-2 rounded-lg text-xs font-bold transition-all"
+            style={{ background: 'rgba(139,92,246,0.18)', border: '1px solid rgba(139,92,246,0.5)', color: '#c4b5fd' }}>
+            + Create Lobby
+          </button>
+          {/* Public toggle */}
+          <button
+            onClick={() => setMakePublic((p) => !p)}
+            className="w-full py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-2 transition-all"
+            style={{
+              background: makePublic ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+              border: makePublic ? '1px solid rgba(16,185,129,0.45)' : '1px solid var(--border-color)',
+              color: makePublic ? '#34d399' : 'var(--text-muted)',
+            }}>
+            <span style={{ fontSize: 13 }}>{makePublic ? '🌐' : '🔒'}</span>
+            {makePublic ? 'Public — visible in lobby browser' : 'Private — invite-code only'}
+          </button>
+        </div>
+
+        {/* Join by code */}
         <div className="flex gap-2">
           <input
             value={joinCode}
@@ -115,6 +160,42 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
             style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.5)', color: '#34d399' }}>
             Join
           </button>
+        </div>
+
+        {/* Public lobby browser */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+              🌐 Open Lobbies
+            </p>
+            {loadingBrowser && (
+              <div className="w-2.5 h-2.5 rounded-full border border-purple-400 border-t-transparent animate-spin" />
+            )}
+          </div>
+          {publicLobbies.length === 0 && !loadingBrowser ? (
+            <p className="text-[10px] text-center py-2" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              No public lobbies right now
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {publicLobbies.map((pl) => (
+                <div key={pl.code}
+                  className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  <div>
+                    <span className="text-[11px] font-bold tracking-wider" style={{ color: '#c4b5fd' }}>{pl.code}</span>
+                    <span className="text-[10px] ml-2" style={{ color: 'var(--text-muted)' }}>{pl.hostName}</span>
+                  </div>
+                  <button
+                    onClick={() => lobby.joinLobby(pl.code)}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded transition-all"
+                    style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34d399' }}>
+                    Join
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

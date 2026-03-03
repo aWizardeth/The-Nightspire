@@ -39,15 +39,17 @@ interface LobbyStore {
   role:       LobbyRole | null;
   channel:    StateChannel | null;
   inviteCode: string | null;
+  isPublic:   boolean;
   errorMsg:   string | null;
   /** Unix ms timestamp of the last meaningful state change — for future timeout logic. */
   lastSeen:   number | null;
 
   /**
    * Create a new PvP lobby locally — generates invite code, no wallet yet.
-   * Share the code with the opponent; call confirmReady when both are present.
+   * Pass isPublic=true to list the lobby in the public browser;
+   * hostId / hostName are used for display in the public list.
    */
-  createLobby: () => void;
+  createLobby: (isPublic?: boolean, hostId?: string, hostName?: string) => void;
 
   /** Join an existing PvP lobby by invite code — no signing yet. */
   joinLobby: (inviteCode: string) => void;
@@ -74,13 +76,21 @@ export const useLobbyStore = create<LobbyStore>()(
       role:       null,
       channel:    null,
       inviteCode: null,
+      isPublic:   false,
       errorMsg:   null,
       lastSeen:   null,
 
-      createLobby: () => {
+      createLobby: (isPublic = false, hostId = '', hostName = 'Anonymous Wizard') => {
         const code = generateInviteCode();
-        console.log(`[aWizard] PvP lobby created (code: ${code})`);
-        set({ step: 'pending', role: 'creator', inviteCode: code, channel: null, errorMsg: null, lastSeen: Date.now() });
+        console.log(`[aWizard] PvP lobby created (code: ${code}, public: ${isPublic})`);
+        set({ step: 'pending', role: 'creator', inviteCode: code, isPublic, channel: null, errorMsg: null, lastSeen: Date.now() });
+        if (isPublic && hostId) {
+          fetch('/api/lobbies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, hostId, hostName }),
+          }).catch((e) => console.warn('[aWizard] Could not register public lobby:', e));
+        }
       },
 
       joinLobby: (inviteCode) => {
@@ -111,8 +121,15 @@ export const useLobbyStore = create<LobbyStore>()(
         }
       },
 
-      exitLobby: () => set({ step: 'idle', role: null, channel: null, inviteCode: null, errorMsg: null, lastSeen: null }),
-      reset:     () => set({ step: 'idle', role: null, channel: null, inviteCode: null, errorMsg: null, lastSeen: null }),
+      exitLobby: () => {
+        const { inviteCode, isPublic } = get();
+        if (isPublic && inviteCode) {
+          fetch(`/api/lobbies?code=${inviteCode}`, { method: 'DELETE' })
+            .catch((e) => console.warn('[aWizard] Could not remove public lobby:', e));
+        }
+        set({ step: 'idle', role: null, channel: null, inviteCode: null, isPublic: false, errorMsg: null, lastSeen: null });
+      },
+      reset: () => set({ step: 'idle', role: null, channel: null, inviteCode: null, isPublic: false, errorMsg: null, lastSeen: null }),
     }),
     {
       name: 'bow-lobby-v1',
@@ -122,6 +139,7 @@ export const useLobbyStore = create<LobbyStore>()(
         role:       state.role,
         channel:    state.channel,
         inviteCode: state.inviteCode,
+        isPublic:   state.isPublic,
         lastSeen:   state.lastSeen,
       }),
       onRehydrateStorage: () => (state) => {

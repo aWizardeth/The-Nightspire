@@ -60,8 +60,8 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
   if (!src || imgError) {
     return (
       <div
-        className="rounded-lg flex items-center justify-center text-xl flex-shrink-0"
-        style={{ width: 36, height: 36, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
+        className="w-full flex items-center justify-center text-4xl rounded-t-lg"
+        style={{ height: 160, background: `${elColour}15`, border: `2px solid ${elColour}40`, borderBottom: 'none' }}
       >
         🧙
       </div>
@@ -71,8 +71,8 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
     <img
       src={src}
       alt={alt}
-      className="rounded-lg object-cover flex-shrink-0"
-      style={{ width: 36, height: 36, border: `2px solid ${elColour}40` }}
+      className="w-full object-cover rounded-t-lg"
+      style={{ height: 160, border: `2px solid ${elColour}40`, borderBottom: 'none' }}
       onError={() => setImgError(true)}
     />
   );
@@ -288,47 +288,55 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                 <button
                   key={nft.id}
                   onClick={() => onSelect(f)}
-                  className="rounded-lg p-2 text-left transition-all"
+                  className="rounded-lg text-left transition-all overflow-hidden"
                   style={{
                     background: isSelected
-                      ? `linear-gradient(135deg, rgba(0,217,255,0.15), rgba(0,217,255,0.05))`
+                      ? `linear-gradient(180deg, rgba(0,217,255,0.12), rgba(0,217,255,0.04))`
                       : 'rgba(255,255,255,0.03)',
                     border: isSelected
                       ? '2px solid rgba(0,217,255,0.7)'
-                      : '1px solid var(--border-color)',
-                    boxShadow: isSelected ? '0 0 16px rgba(0,217,255,0.25)' : 'none',
+                      : `2px solid ${elColour}30`,
+                    boxShadow: isSelected ? `0 0 18px rgba(0,217,255,0.3)` : `0 0 8px ${elColour}18`,
                     cursor: 'pointer',
                   }}
                 >
-                  <div className="flex items-start gap-2 mb-1.5">
+                  {/* Portrait image — fills full card width */}
+                  <div className="relative">
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold truncate" style={{ color: 'var(--text-color)', fontSize: '0.75rem' }}>{f.name}</p>
-                      <div className="flex gap-1 mt-0.5 flex-wrap">
-                        <span
-                          className="px-1 py-0.5 rounded font-bold"
-                          style={{ fontSize: '0.6rem', background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
-                        >
-                          {f.rarity}
-                        </span>
-                        <span
-                          className="px-1 py-0.5 rounded font-bold"
-                          style={{ fontSize: '0.6rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
-                        >
-                          {f.strength}
-                        </span>
-                      </div>
-                    </div>
                     {isSelected && (
-                      <span className="text-lg flex-shrink-0">✅</span>
+                      <span className="absolute top-1 right-1 text-sm leading-none">✅</span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                    <span style={{ fontSize: '0.65rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
-                    <span style={{ fontSize: '0.65rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
-                    <span style={{ fontSize: '0.65rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
-                    <span style={{ fontSize: '0.65rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
+                  {/* Card body */}
+                  <div className="p-2 space-y-1.5"
+                    style={{ borderTop: `2px solid ${elColour}30`, background: 'rgba(0,0,0,0.3)' }}>
+                    <p className="font-bold truncate text-center"
+                      style={{ color: 'var(--text-color)', fontSize: '0.7rem' }}>{f.name}</p>
+
+                    {/* Badges */}
+                    <div className="flex gap-1 justify-center flex-wrap">
+                      <span
+                        className="px-1 py-0.5 rounded font-bold"
+                        style={{ fontSize: '0.55rem', background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
+                      >
+                        {f.rarity}
+                      </span>
+                      <span
+                        className="px-1 py-0.5 rounded font-bold"
+                        style={{ fontSize: '0.55rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                      >
+                        {f.strength}
+                      </span>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+                      <span style={{ fontSize: '0.6rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
+                    </div>
                   </div>
                 </button>
               );
