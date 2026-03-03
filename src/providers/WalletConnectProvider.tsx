@@ -156,62 +156,28 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     }
 
     // ── Discord Activity proxy: route WalletConnect relay through Discord's sandbox ──
-    // Discord's CSP blocks all direct external WebSocket/fetch connections.
-    // The Discord Developer Portal must have the URL Mapping:
-    //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
+    // Discord's CSP blocks all direct external WebSocket connections.
+    // patchUrlMappings patches the global WebSocket constructor so the SDK's
+    // internally-built URL (wss://relay.walletconnect.com/?projectId=xxx&auth=xxx)
+    // is transparently rewritten to wss://<appId>.discordsays.com/walletconnect?...
+    // preserving the auth query params that the relay needs.
     //
-    // Additionally, WalletConnect Cloud project must allow origin: *.discordsays.com
-    // (cloud.walletconnect.com → project → Explorer → Allowed Domains)
-    let relayUrl: string | undefined;
+    // DO NOT set a custom relayUrl — doing so bypasses the SDK's auth param injection
+    // and the relay receives a credential-less connection → "relay error: {}".
+    //
+    // Discord Developer Portal must have the URL Mapping:
+    //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
     if (isIframe) {
-      // patchUrlMappings rewrites the global WebSocket/fetch so any internal
-      // call to relay.walletconnect.com is transparently proxied.
       patchUrlMappings([{ prefix: '/walletconnect', target: 'relay.walletconnect.com' }]);
-      // Explicit relayUrl ensures SignClient never tries the direct host.
-      relayUrl = `wss://${window.location.hostname}/walletconnect`;
-      console.log('[aWizard] Discord iframe — relayUrl:', relayUrl);
-
-      // ── Connectivity probe: raw WebSocket test before SignClient ──
-      // 1006 on a bare probe (no auth params) is EXPECTED and normal.
-      // If SignClient publishes also fail, the issue is WalletConnect Cloud domain restrictions.
-      let probeOpened = false;
-      const probeWs = new WebSocket(relayUrl);
-      const probeTimer = setTimeout(() => {
-        probeWs.close();
-        const msg = 'TIMEOUT — relay not responding after 5s';
-        console.warn('[aWizard] ⚠️ Relay probe:', msg);
-        setRelayProbeStatus(msg);
-      }, 5000);
-      probeWs.addEventListener('open', () => {
-        clearTimeout(probeTimer);
-        probeOpened = true;
-        console.log('[aWizard] ✅ Relay probe: OPEN — proxy path works');
-        setRelayProbeStatus(true);
-        probeWs.close();
-      });
-      probeWs.addEventListener('error', () => {
-        clearTimeout(probeTimer);
-        const msg = `WebSocket ERROR — Discord URL Mapping may be missing.\nCheck: Discord Dev Portal → Activities → URL Mappings → /walletconnect → relay.walletconnect.com`;
-        console.error('[aWizard] ❌ Relay probe error');
-        if (!probeOpened) setRelayProbeStatus(msg);
-      });
-      probeWs.addEventListener('close', (e) => {
-        clearTimeout(probeTimer);
-        if (!probeOpened) {
-          // 1006 = abnormal close (relay rejected bare connection — expected without auth params)
-          // If SignClient publish also fails, add exact origin to WalletConnect Cloud allowed domains
-          const msg = `Probe closed code=${e.code}${e.reason ? ` reason="${e.reason}"` : ''} — 1006 on bare probe is normal (no auth). If publish fails: add ${window.location.hostname} to WalletConnect Cloud → Allowed Domains.`;
-          console.warn('[aWizard] ⚠️ Relay probe close:', e.code, e.reason || '(no reason)');
-          setRelayProbeStatus(msg);
-        }
-      });
+      console.log('[aWizard] Discord iframe — patchUrlMappings applied for relay.walletconnect.com → /walletconnect');
     } else {
-      console.log('[aWizard] Not in iframe — using default relay.walletconnect.com');
+      console.log('[aWizard] Not in iframe — using direct relay.walletconnect.com');
     }
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
-      relayUrl,   // proxied in Discord Activity, default (undefined) outside
+      // relayUrl intentionally omitted — SDK builds wss://relay.walletconnect.com/?projectId=...&auth=...
+      // patchUrlMappings (above) rewrites that URL through the Discord proxy transparently.
       metadata:  {
         name:        'The Nightspire',
         description: 'Arcane BOW Discord Activity — PvE/PvP Chia battles',
