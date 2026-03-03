@@ -100,31 +100,37 @@ npm run build
 ## Current State (March 2, 2026)
 
 ### ✅ Completed
-- **WalletConnect v2 Upgrade**: Migrated from deprecated v1 to @walletconnect/sign-client v2.23.7
-- **Inline QR Display**: Replaced modal popup with bow-app style inline QR code rendering
-- **Connection Controls**: Added refresh (reload Activity) and cancel (abort connection) buttons
-- **Copy URI**: Clipboard functionality with visual feedback for manual wallet pairing
-- **Discord SDK Integration**: Enhanced iframe context detection to prevent frame_id errors
-- **Debug Logging**: Extensive console logging throughout connection flow for diagnostics
+- **WalletConnect v2 Full Integration**: `index.html` inline WebSocket patch bypasses isomorphic-ws timing issue; relay routed through Discord URL Mapping `/walletconnect` → `relay.walletconnect.org`
+- **Inline QR Display**: QR code renders inside WalletTab and BattleTab (no modal); copy URI with `execCommand` fallback for Discord iframe
+- **Namespace Fix**: `chia:mainnet` required-only; `testnet11` in optional only (prevents namespace rejection)
+- **NFT Fighter Selector**: `FighterSelector` component with stat bars, element/rarity badges, NFT image; APPROVED_COLLECTIONS aware
+- **Fighter System Port (`fighters.ts`)**: `ElementType` (11 elements), `RarityTier`, `APPROVED_COLLECTIONS` registry (Chellyz Genesis), `calculateFighterDamage()`, `resolveTurnOrder()`, `calculateAPSChange()`
+- **Tier System Port (`tiers.ts`)**: 5-tier PvE progression (Apprentice → Overlord), boss stats and weaknesses, player stat caps, difficulty labels
+- **Tracker Client (`trackerClient.ts`)**: Koba42Corp tracker client, `RoomRecord`/`AnnounceParams` types, auto-reannounce every 60 s
+- **Battle Engine Upgrade (`battleEngine.ts`)**: Wired to authoritative `calculateFighterDamage()` and `resolveTurnOrder()` from `fighters.ts`
+- **State Channel Protocol Types (`stateChannel.ts`)**: `PotatoSignatures`, `ChannelKeys`, `CoinInfo`, `SpendBundle`, `CoinSpend`, `StateChannel` — wired to Chia channel spec
+- **Type Alignment (`bowActivityStore.ts`)**: `Fighter`/`RarityTier`/`ElementType` re-exported from `fighters.ts`; no more type drift
+- **Discord SDK Integration**: Iframe origin detection, `commander.ready()`, `patchUrlMappings` fallback
+- **UI Polish**: White-text gradient buttons with glow, relay debug panel hidden behind `SHOW_RELAY_STATUS` flag
 
 ### 🔄 In Progress
-- **QR Code Display**: Initialization state now showing ("⚡ Initializing WalletConnect..."), debugging QR generation
-- **Sage Wallet Testing**: Connection flow with Chia Sage wallet pending QR display fix
-- **Session Management**: Verifying session persistence across Activity reloads
+- **Sage Wallet End-to-End Test**: WalletConnect session established, verifying `chip0002_getNFTs` and `chip0002_signCoinSpends`
+- **Battle Commit/Reveal UI**: Move grid, commit hash, reveal phase, PeerJS exchange
+- **Production Vercel Deploy**: Discord Developer Portal URL mapping pending clean E2E test
 
 ### 📋 TODO
-- [ ] Fix QR code rendering after "Initializing WalletConnect..." state
-- [ ] Test complete wallet connection flow with Sage wallet
-- [ ] Verify CHIP-0002 methods (signCoinSpends, getNFTs, getAssetCoins)
-- [ ] Clean up debug console.log statements for production
-- [ ] Update Discord bot entry point (handler:2 → handler:1 for silent launches)
-- [ ] Test cross-platform battle flow (Discord ↔ bow-app ↔ gym-server)
-- [ ] Deploy production build to Vercel with verified WalletConnect flow
+- [ ] Commit/reveal move UI (move grid → hash commitment → reveal)
+- [ ] PeerJS peer connection for move exchange
+- [ ] Tracker room list UI (browse + create + join)
+- [ ] aWizard bot API connection (`VITE_AWIZARD_BOT_URL`)
+- [ ] Leaderboard from tracker scrape endpoint
+- [ ] NFT gate API (`/api/nft/gate`)
+- [ ] Clean up `console.log` statements for production
+- [ ] Bundle code-split (currently ~1 MB)
 
 ### 🐛 Known Issues
-- QR code not appearing after initialization despite pairingUri generation
-- Connection state transitions need verification (connecting → approving → connected)
-- Large bundle size warning (853.71 kB) - may need code splitting
+- Bundle size ~1 MB (Rollup warning) — needs dynamic imports for WalletConnect
+- `src/discord.ts` dynamic + static import conflict (pre-existing, non-breaking)
 
 ## Features
 
