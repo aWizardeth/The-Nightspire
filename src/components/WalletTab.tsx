@@ -65,10 +65,24 @@ export default function WalletTab({ userId }: WalletTabProps) {
 
   const handleCopy = () => {
     if (!pairingUri) return;
-    navigator.clipboard.writeText(pairingUri).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    // navigator.clipboard is blocked in Discord's iframe — use execCommand fallback
+    const tryExecCopy = () => {
+      const ta = document.createElement('textarea');
+      ta.value = pairingUri;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    };
+    const finish = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(pairingUri).then(finish).catch(() => { tryExecCopy(); finish(); });
+    } else {
+      tryExecCopy();
+      finish();
+    }
   };
 
   const handleDisconnect = async () => {

@@ -6,9 +6,8 @@ import { patchUrlMappings } from '@discord/embedded-app-sdk';
 // Project ID from Vercel env — dedicated to The Nightspire
 const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 const CHIA_CHAIN = 'chia:mainnet';
-const CHIA_CHAINS = [CHIA_CHAIN, 'chia:mainnet', 'chia:testnet11'].filter(
-  (v, i, a) => a.indexOf(v) === i,
-);
+const CHIA_CHAINS_REQUIRED = ['chia:mainnet'];
+const CHIA_CHAINS_OPTIONAL = ['chia:mainnet', 'chia:testnet11'];
 
 // ------------------------------------------------------------------
 //  Types matching Sage / chip0002 spec
@@ -286,14 +285,14 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
               'chip0002_getAssetCoins',
               'chip0002_getNFTs',
             ],
-            chains: CHIA_CHAINS,
+            chains: CHIA_CHAINS_REQUIRED,
             events: []
           }
         },
         optionalNamespaces: {
           chia: {
             methods: ['chip0002_signCoinSpends', 'chip0002_sendTransaction'],
-            chains: CHIA_CHAINS,
+            chains: CHIA_CHAINS_OPTIONAL,
             events: [],
           },
         },
