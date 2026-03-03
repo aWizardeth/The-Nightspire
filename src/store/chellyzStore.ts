@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { ChellyzGameState, PlayerId } from '../lib/chellyzEngine';
 import type { NFTData } from './bowActivityStore';
+import { enrichGameImages } from '../lib/chellyzImages';
 import {
   startGame,
   resolveCoinFlip,
@@ -76,6 +77,9 @@ interface ChellyzActions {
   doPiercingRoll: () => void;
   doSkipPiercing: () => void;
   doEndTurn:      () => void;
+
+  /** Async: fetch missing card images from MintGarden and patch game state */
+  enrichImages:   () => Promise<void>;
 
   /** Let the AI take a full turn (when opponentType === 'ai') */
   doAiTurn:       () => void;
@@ -232,6 +236,13 @@ export const useChellyzStore = create<ChellyzState & ChellyzActions>()(
         // AI is always player2 in single-player mode
         const aiState = aiTakeTurn(game, 'player2');
         set({ game: aiState });
+      },
+
+      enrichImages: async () => {
+        const { game } = get();
+        if (!game) return;
+        const enriched = await enrichGameImages(game);
+        set({ game: enriched });
       },
 
       clearAnimation: () => set({ showingAnimation: false }),

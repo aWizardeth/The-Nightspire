@@ -96,7 +96,12 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
         ) : card ? (
           <>
             {card.imageUri ? (
-              <img src={card.imageUri} alt={card.name} className="w-full h-9 object-cover rounded-sm" />
+              <img
+                src={card.imageUri}
+                alt={card.name}
+                className="w-full h-9 object-contain rounded-sm bg-black/30"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             ) : (
               <span className="text-lg leading-none pt-1">
                 {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}
@@ -188,6 +193,7 @@ function CoinOverlay({ result, onDone }: { result: 'heads' | 'tails'; onDone: ()
 
 function ChellyzLobby({ userName }: { userId: string; userName: string }) {
   const startNewGame = useChellyzStore((s) => s.startNewGame);
+  const enrichImages  = useChellyzStore((s) => s.enrichImages);
   const nfts = useBowActivityStore((s) => s.wallet.nfts);
   const [mode, setMode] = useState<'ai' | 'hot_seat'>('ai');
 
@@ -197,6 +203,9 @@ function ChellyzLobby({ userName }: { userId: string; userName: string }) {
     } else {
       startNewGame('Player 1', nfts.length ? nfts : null, 'Player 2', null, 'hot_seat');
     }
+    // Async: fetch missing card images in the background (IPFS already resolved
+    // synchronously; this covers NFTs whose image wasn't in Sage metadata)
+    void enrichImages();
   };
 
   return (
@@ -535,7 +544,12 @@ function GameBoard() {
               className={`flex-shrink-0 w-14 h-20 rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
             >
               {card.imageUri ? (
-                <img src={card.imageUri} alt={card.name} className="w-full h-9 object-cover rounded-sm" />
+                <img
+                  src={card.imageUri}
+                  alt={card.name}
+                  className="w-full h-9 object-contain rounded-sm bg-black/30"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               ) : (
                 <span className="text-lg pt-1">
                   {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}

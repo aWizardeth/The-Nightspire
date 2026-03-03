@@ -539,7 +539,7 @@ export function buildNftDeck(nfts: NFTData[]): { deck: ChellyzCard[]; isNftDeck:
       evolutionFamily: familySlug,
       stats:           { hp, maxHp: hp, atk, def, spd, specialDmg, specialCost },
       currentHp:       hp,
-      imageUri:        nft.image,
+      imageUri:        resolveImageUri(nft.image),
       nftId:           nft.id,
       isStarter:       false,
     };
@@ -560,6 +560,25 @@ export function buildNftDeck(nfts: NFTData[]): { deck: ChellyzCard[]; isNftDeck:
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
+
+/**
+ * Convert any IPFS-scheme URI to a working HTTPS gateway URL.
+ * Uses nftstorage.link (fast, Cloudflare-backed) with ipfs.io as fallback.
+ * Also normalises https://ipfs.io/ipfs/... URIs to nftstorage.link.
+ */
+export function resolveImageUri(uri: string | undefined): string | undefined {
+  if (!uri) return undefined;
+  // ipfs:// → nftstorage gateway
+  if (uri.startsWith('ipfs://')) {
+    const cid = uri.slice(7);
+    return `https://nftstorage.link/ipfs/${cid}`;
+  }
+  // Re-map the slow default ipfs.io gateway to the faster nftstorage one
+  if (uri.startsWith('https://ipfs.io/ipfs/')) {
+    return uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
+  }
+  return uri;
+}
 
 export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
