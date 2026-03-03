@@ -152,22 +152,30 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // ── Discord Activity proxy: rewrite WalletConnect relay WebSocket ──
-    // Discord's CSP sandbox blocks direct external WebSocket connections.
-    // We map wss://relay.walletconnect.com → /{appId}.discordsays.com/walletconnect
-    // The Discord Developer Portal must have the URL Mapping:
+    // ── Discord Activity proxy: route WalletConnect relay through Discord's sandbox ──
+    // Discord's CSP blocks all direct external WebSocket/fetch connections.
+    // Strategy 1: patchUrlMappings rewrites the global WebSocket constructor so
+    //             any connection to relay.walletconnect.com is transparently
+    //             routed through the Discord proxy at /walletconnect.
+    // Strategy 2: Explicitly pass the proxied URL as relayUrl to SignClient.init
+    //             so the SDK never tries to reach the external host directly.
+    //
+    // Discord Developer Portal must have the URL Mapping:
     //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
+    let relayUrl: string | undefined;
     if (isIframe) {
-      console.log('[aWizard] Patching URL mappings for Discord proxy (relay.walletconnect.com → /walletconnect)');
+      console.log('[aWizard] Discord iframe detected — patching URL mappings for relay proxy');
       patchUrlMappings([{ prefix: '/walletconnect', target: 'relay.walletconnect.com' }]);
-      console.log('[aWizard] ✅ URL mappings patched');
+      // Build the proxied relay URL: wss://<appId>.discordsays.com/walletconnect
+      relayUrl = `wss://${window.location.hostname}/walletconnect`;
+      console.log('[aWizard] ✅ relayUrl set to:', relayUrl);
+    } else {
+      console.log('[aWizard] Not in iframe — using default relay.walletconnect.com');
     }
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
-      // Don't set relayUrl — let the SDK use its built-in default.
-      // The docs use relay.walletconnect.com for HTTP but the SDK
-      // handles WebSocket routing internally.
+      relayUrl,   // proxied in Discord Activity, default (undefined) outside
       metadata:  {
         name:        'The Nightspire',
         description: 'Arcane BOW Discord Activity — PvE/PvP Chia battles',
