@@ -168,16 +168,16 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     // Discord Developer Portal must have the URL Mapping:
     //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
     if (isIframe) {
-      // WalletConnect 2.17.x uses relay.walletconnect.org
-      // Discord Developer Portal URL Mapping must be:
-      //   PREFIX: /walletconnect   TARGET: relay.walletconnect.org
+      // window.WebSocket is already patched in index.html <script> tag (runs before
+      // any module loads, so isomorphic-ws captures the proxied constructor).
+      // patchUrlMappings is kept as a belt-and-suspenders fallback for fetch/XHR.
       patchUrlMappings([
         { prefix: '/walletconnect', target: 'relay.walletconnect.org' },
-        { prefix: '/walletconnect', target: 'relay.walletconnect.com' }, // fallback for newer SDK versions
+        { prefix: '/walletconnect', target: 'relay.walletconnect.com' },
       ]);
-      console.log('[aWizard] Discord iframe — patchUrlMappings applied for relay.walletconnect.org → /walletconnect');
+      console.log('[aWizard] Discord iframe — relay proxy active (index.html WS patch + patchUrlMappings)');
     } else {
-      console.log('[aWizard] Not in iframe — using direct relay.walletconnect.com');
+      console.log('[aWizard] Not in iframe — using direct relay');
     }
 
     SignClient.init({

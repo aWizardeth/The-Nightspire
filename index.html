@@ -9,6 +9,35 @@
   <body>
     <!-- Polyfill Node.js globals that WalletConnect expects -->
     <script>if(typeof globalThis!=='undefined'){window.global=globalThis}else{window.global=window}window.process=window.process||{env:{}};window.Buffer=window.Buffer||{isBuffer:function(){return false}};</script>
+    <!-- Patch window.WebSocket BEFORE any module loads so WalletConnect's
+         isomorphic-ws captures the proxied version. Routes relay traffic
+         through Discord's Activity proxy (/walletconnect URL Mapping).
+         Only active inside the Discord iframe. -->
+    <script>
+      (function() {
+        if (window === window.parent) return; // not in iframe, skip
+        var OrigWS = window.WebSocket;
+        function PatchedWS(url, protocols) {
+          var s = typeof url === 'string' ? url : String(url);
+          if (s.indexOf('relay.walletconnect') !== -1) {
+            // Rewrite wss://relay.walletconnect.org/... → wss://<appId>.discordsays.com/walletconnect/...
+            s = s.replace(/wss:\/\/relay\.walletconnect\.[a-z]+/, 'wss://' + window.location.hostname + '/walletconnect');
+            console.log('[aWizard] WS patch: relay → proxy', s.substring(0, 80));
+          }
+          if (protocols !== undefined) {
+            return new OrigWS(s, protocols);
+          }
+          return new OrigWS(s);
+        }
+        PatchedWS.prototype = OrigWS.prototype;
+        PatchedWS.CONNECTING = OrigWS.CONNECTING;
+        PatchedWS.OPEN       = OrigWS.OPEN;
+        PatchedWS.CLOSING    = OrigWS.CLOSING;
+        PatchedWS.CLOSED     = OrigWS.CLOSED;
+        window.WebSocket = PatchedWS;
+        console.log('[aWizard] window.WebSocket patched for Discord Activity relay proxy');
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
