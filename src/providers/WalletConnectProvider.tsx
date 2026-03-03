@@ -297,7 +297,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
               'chip0002_getPublicKeys',
               'chip0002_getAssetBalance',
               'chip0002_getAssetCoins',
-              'chip0002_getNFTs',
+              'chia_getNfts',
             ],
             chains: CHIA_CHAINS_REQUIRED,
             events: []
@@ -305,7 +305,12 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         },
         optionalNamespaces: {
           chia: {
-            methods: ['chip0002_signCoinSpends', 'chip0002_sendTransaction'],
+            methods: [
+              'chip0002_signCoinSpends',
+              'chip0002_sendTransaction',
+              'chip0002_getNFTs',
+              'chia_getNfts',
+            ],
             chains: CHIA_CHAINS_OPTIONAL,
             events: [],
           },
@@ -415,29 +420,40 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     if (!client || !session) throw new Error('No active WalletConnect session');
     const chain = session.namespaces?.chia?.chains?.[0] ?? CHIA_CHAIN;
 
-    // Sage uses chia_getNfts (high-level WalletConnect method).
-    // It supports collectionId filter natively and paginates with limit/offset.
-    // Response is always { nfts: [...] } — traits are NOT inline (see metadataUris).
-    const BATCH     = 50;
-    const MAX_NFTS  = 200;
-    const collectionId = 'col198luy7d64a8zksmseysz9a7mn8dnk590huspz5q8p8p3pglqsn4s6fjpun';
+    // chia_getNfts — supported by Sage wallet via WalletConnect.
+    // Params: { limit, offset } only — collectionId filter is client-side.
+    // Response shape: { nfts: WalletNft[] }
+    const APPROVED_COLLECTION = 'col198luy7d64a8zksmseysz9a7mn8dnk590huspz5q8p8p3pglqsn4s6fjpun';
+    const BATCH    = 50;
+    const MAX_NFTS = 500;
     const all: WalletNft[] = [];
 
+    console.log('[aWizard] getNFTs: starting fetch, chain=', chain, 'topic=', session.topic);
+
     for (let offset = 0; offset < MAX_NFTS; offset += BATCH) {
+      console.log('[aWizard] getNFTs: requesting offset=', offset);
       const res = await client.request<{ nfts: WalletNft[] }>({
         topic: session.topic,
         chainId: chain,
         request: {
           method: 'chia_getNfts',
-          params: { limit: BATCH, offset, collectionId },
+          params: { limit: BATCH, offset },
         },
       });
+      console.log('[aWizard] getNFTs: raw response offset=', offset, res);
       const batch = res?.nfts ?? [];
       all.push(...batch);
       if (batch.length < BATCH) break; // last page reached
     }
 
-    return all;
+    console.log('[aWizard] getNFTs: total fetched=', all.length);
+    console.log('[aWizard] getNFTs: collection IDs found=', [...new Set(all.map(n => n.collectionId))]);
+
+    // Filter to the approved collection client-side
+    const filtered = all.filter(n => n.collectionId === APPROVED_COLLECTION);
+    console.log('[aWizard] getNFTs: filtered to collection=', filtered.length, 'NFTs');
+
+    return filtered;
   }, [session]);
 
   return (
