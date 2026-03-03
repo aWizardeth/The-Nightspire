@@ -88,6 +88,7 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
   const w = size === 'sm' ? CARD_SM : CARD_MD;
   const colorCls = card ? (ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral']) : 'bg-zinc-800/60 border-zinc-600';
   const ringCls  = highlight ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-900' : '';
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div className="flex flex-col items-center gap-0.5">
@@ -101,12 +102,12 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
           <span className="text-zinc-500 text-[9px] m-auto">🂠</span>
         ) : card ? (
           <>
-            {card.imageUri ? (
+            {card.imageUri && !imgError ? (
               <img
                 src={card.imageUri}
                 alt={card.name}
                 className="w-full h-9 object-contain rounded-sm bg-black/30"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                onError={() => setImgError(true)}
               />
             ) : (
               <span className="text-lg leading-none pt-1">

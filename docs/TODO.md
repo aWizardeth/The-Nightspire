@@ -7,6 +7,32 @@
 
 ## Backlog
 
+### ⚡ State Channel Battles (Mainnet)
+- [ ] **Align channelOpen.ts with bow-app real CLVM coin spend**
+  - Replace `solution: '0x80'` stub with greenwebjs `buildStandardSolution(puzHash, amount, memo)` → REMARK + CREATE_COIN
+  - Add `greenwebjs` as a dependency and use for p2 standard coin solution serialisation
+  - Derive player's puzzle hash from wallet address (bech32m → puzzleHash → `0x` hex)
+- [ ] **Wire Chellyz game start → open state channel (1 mojo, mainnet)**
+  - `ChellyzTab` "Start Game" button triggers `useLobbyStore.openGymLobby()` before entering play
+  - Show Sage wallet signing prompt before allowing the first card play
+  - On sign success: store `channelId` + `coinId` in Chellyz game context
+- [ ] **Wire Battle tab → open state channel before battle loop**
+  - `BattleTab` "Start Battle" prompts `useLobbyStore.openGymLobby()` first
+  - Channel must be `'locked'` before moves are accepted
+- [ ] **Bond type UI selector in LobbyTab**
+  - Radio/select: XCH Mojo (default) | CAT (coming soon, disabled) | NFT Bond (coming soon, disabled)
+  - `useLobbyStore.setBondType()` already wired
+- [ ] **CAT bond support (future)**
+  - When `bondType === 'cat'`: call `chip0002_getAssetCoins` with `asset_id: bondCatAssetId, type: 'CAT'`
+  - Store `bondCatAssetId` in `StateChannel.bondCatAssetId`
+- [ ] **NFT bond support (future)**
+  - When `bondType === 'nft'`: use NFT launcher ID as collateral
+  - Requires Chia DID / NFT puzzle lock (out of scope for v1 alpha)
+- [ ] **Channel settlement flow**
+  - After Chellyz or Battle ends, call `sendFundingBundle` with a settlement memo
+  - Update tracker with `stateChannelStatus: 'settled'`
+  - Show confetti + APS change on win
+
 ### 🔐 Authentication & Access
 - [ ] NFT-gated access: verify user holds a specific collection NFT (`/api/nft/gate`)
 - [ ] Fallback: Discord role-based access if NFT gate is disabled

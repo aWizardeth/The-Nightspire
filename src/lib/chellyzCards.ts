@@ -562,22 +562,31 @@ export function buildNftDeck(nfts: NFTData[]): { deck: ChellyzCard[]; isNftDeck:
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 /**
- * Convert any IPFS-scheme URI to a working HTTPS gateway URL.
- * Uses nftstorage.link (fast, Cloudflare-backed) with ipfs.io as fallback.
- * Also normalises https://ipfs.io/ipfs/... URIs to nftstorage.link.
+ * Convert any IPFS-scheme URI to a proxied HTTPS URL via /api/img.
+ *
+ * Discord Activities run in a sandboxed iframe — direct requests to
+ * nftstorage.link / ipfs.io can be blocked by Discord's CSP.
+ * Routing through /api/img (Vercel edge) keeps all image requests
+ * on the same origin and bypasses the restriction.
  */
 export function resolveImageUri(uri: string | undefined): string | undefined {
   if (!uri) return undefined;
-  // ipfs:// → nftstorage gateway
+
+  // Determine the canonical HTTPS URL
+  let httpsUrl: string;
   if (uri.startsWith('ipfs://')) {
-    const cid = uri.slice(7);
-    return `https://nftstorage.link/ipfs/${cid}`;
+    httpsUrl = 'https://nftstorage.link/ipfs/' + uri.slice(7);
+  } else if (uri.startsWith('https://ipfs.io/ipfs/')) {
+    httpsUrl = uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
+  } else if (uri.startsWith('https://')) {
+    // Already a valid HTTPS URL — proxy it if it's an IPFS gateway or CDN
+    httpsUrl = uri;
+  } else {
+    return undefined; // unknown scheme — drop it
   }
-  // Re-map the slow default ipfs.io gateway to the faster nftstorage one
-  if (uri.startsWith('https://ipfs.io/ipfs/')) {
-    return uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
-  }
-  return uri;
+
+  // Route through server-side proxy so Discord iframe CSP doesn't block it
+  return '/api/img?url=' + encodeURIComponent(httpsUrl);
 }
 
 export function shuffle<T>(arr: T[]): T[] {

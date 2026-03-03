@@ -10,7 +10,7 @@
  */
 
 import { create } from 'zustand';
-import type { StateChannel } from '../lib/stateChannel';
+import type { StateChannel, BondType } from '../lib/stateChannel';
 import { openGymChannel, createPvpChannel, joinPvpChannel } from '../lib/channelOpen';
 import type { Fighter } from '../lib/fighters';
 
@@ -34,10 +34,12 @@ interface LobbyStore {
   inviteCode:   string | null;
   errorMsg:     string | null;
   selectedTier: number;
+  bondType:     BondType;   // 'mojo' (default) | 'cat' | 'nft' (future)
 
-  // ── Setters ──────────────────────────────────────────────────────────────
+  // ── Setters ─────────────────────────────────────────────────────────────────────
   setMode: (mode: LobbyMode) => void;
   setTier: (tier: number) => void;
+  setBondType: (type: BondType) => void;
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -80,18 +82,19 @@ export const useLobbyStore = create<LobbyStore>()((set, get) => ({
   inviteCode:   null,
   errorMsg:     null,
   selectedTier: 1,
+  bondType:     'mojo',
 
   setMode: (mode) => set({ mode, step: 'idle', channel: null, inviteCode: null, errorMsg: null }),
   setTier: (tier) => set({ selectedTier: tier }),
+  setBondType: (type) => set({ bondType: type }),
 
   openGymLobby: async (walletAddress, session, _fighter) => {
-    const { selectedTier } = get();
+    const { selectedTier, bondType } = get();
     set({ step: 'creating', errorMsg: null, channel: null });
     try {
       set({ step: 'signing' });
-      const channel = await openGymChannel(walletAddress, session, selectedTier, walletAddress);
+      const channel = await openGymChannel(walletAddress, session, selectedTier, walletAddress, undefined, bondType);
       set({ step: 'broadcasting' });
-      // openGymChannel already called broadcastFundingBundle; reflect status:
       set({ step: channel.status === 'locked' ? 'open' : 'broadcasting', channel });
     } catch (err) {
       set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });

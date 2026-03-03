@@ -54,6 +54,30 @@ const RARITY_COLOURS: Record<string, string> = {
   Legendary: '#ff9800',
 };
 
+// Small component so each card has its own imgError state inside .map()
+function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string; elColour: string }) {
+  const [imgError, setImgError] = useState(false);
+  if (!src || imgError) {
+    return (
+      <div
+        className="rounded-lg flex items-center justify-center text-xl flex-shrink-0"
+        style={{ width: 36, height: 36, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
+      >
+        🧙
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="rounded-lg object-cover flex-shrink-0"
+      style={{ width: 36, height: 36, border: `2px solid ${elColour}40` }}
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
   const [showDebug, setShowDebug] = useState(false);
@@ -274,22 +298,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   }}
                 >
                   <div className="flex items-start gap-2 mb-1.5">
-                    {nft.image ? (
-                      <img
-                        src={nft.image}
-                        alt={nft.name}
-                        className="rounded-lg object-cover flex-shrink-0"
-                        style={{ width: 36, height: 36, border: `2px solid ${elColour}40` }}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <div
-                        className="rounded-lg flex items-center justify-center text-xl flex-shrink-0"
-                        style={{ width: 36, height: 36, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
-                      >
-                        🧙
-                      </div>
-                    )}
+                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold truncate" style={{ color: 'var(--text-color)', fontSize: '0.75rem' }}>{f.name}</p>
                       <div className="flex gap-1 mt-0.5 flex-wrap">

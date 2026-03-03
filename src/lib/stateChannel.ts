@@ -21,6 +21,9 @@ export interface ChannelKeys {
   aggregate_unroll_pk:          string;   // G1 hex — BLS aggregate of unroll keys
 }
 
+/** Bond type for wager — mojo is default (mainnet); CAT and NFT are future extensions */
+export type BondType = 'mojo' | 'cat' | 'nft';
+
 export type ChannelStatus =
   | 'pending'     // waiting for both parties to lock funds
   | 'locked'      // coin created on-chain, channel open
@@ -60,6 +63,10 @@ export interface StateChannel {
   // Keys & signatures
   channelKeys?:       ChannelKeys;
   signatures?:        PotatoSignatures;
+  // Bond / wager type
+  bondType:           BondType;      // 'mojo' | 'cat' | 'nft'
+  bondCatAssetId?:    string;        // CAT asset ID (future)
+  bondNftId?:         string;        // NFT launcher ID (future)
   // Balances (mojos)
   partyABalance:      bigint;
   partyBBalance:      bigint;
