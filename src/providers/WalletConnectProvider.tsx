@@ -156,11 +156,14 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
+      relayUrl:  'wss://relay.walletconnect.com',
       metadata:  {
         name:        'Battle of Wizards - Discord Activity',
         description: 'aWizard Discord Activity — PvE/PvP battles with soulbound NFTs',
-        url:         typeof window !== 'undefined' ? window.location.origin : 'https://the-nightspire.vercel.app',
-        icons:       [typeof window !== 'undefined' ? `${window.location.origin}/wizard-icon.png` : 'https://the-nightspire.vercel.app/wizard-icon.png'],
+        // Use Vercel domain (registered in WalletConnect Cloud), not the
+        // Discord iframe origin (*.discordsays.com) which is a proxy
+        url:         'https://the-nightspire.vercel.app',
+        icons:       ['https://the-nightspire.vercel.app/wizard-icon.png'],
       },
     }).then((c) => {
       if (!mounted) return;
