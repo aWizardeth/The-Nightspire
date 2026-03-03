@@ -31,6 +31,8 @@ function getDebugInfo() {
 
 // Toggle to true (or set VITE_DEBUG=true) to show the debug panel
 const SHOW_DEBUG_PANEL = import.meta.env.VITE_DEBUG === 'true';
+// Toggle to true to show the relay status diagnostic card
+const SHOW_RELAY_STATUS = false;
 
 // Element → colour mapping for badges
 const ELEMENT_COLOURS: Record<string, string> = {
@@ -206,18 +208,20 @@ export default function WalletTab({ userId }: WalletTabProps) {
         </div>
       </div>
 
-      {/* Relay status — always visible, shows errors from relay error hooks */}
-      <div className="glow-card" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-        <div style={{ color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>🔌 Relay Status</div>
-        <div style={{ color: relayProbeStatus === true ? '#00ff88' : relayProbeStatus === null ? '#aaa' : '#ff6b6b', wordBreak: 'break-all' }}>
-          {relayProbeStatus === null && (clientReady ? '✅ relay connected (no errors)' : '⏳ initializing…')}
-          {relayProbeStatus === true && '✅ relay connected'}
-          {typeof relayProbeStatus === 'string' && relayProbeStatus}
+      {/* Relay status — enable SHOW_RELAY_STATUS to diagnose relay issues */}
+      {SHOW_RELAY_STATUS && (
+        <div className="glow-card" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
+          <div style={{ color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>🔌 Relay Status</div>
+          <div style={{ color: relayProbeStatus === true ? '#00ff88' : relayProbeStatus === null ? '#aaa' : '#ff6b6b', wordBreak: 'break-all' }}>
+            {relayProbeStatus === null && (clientReady ? '✅ relay connected (no errors)' : '⏳ initializing…')}
+            {relayProbeStatus === true && '✅ relay connected'}
+            {typeof relayProbeStatus === 'string' && relayProbeStatus}
+          </div>
+          <div style={{ color: '#888', marginTop: '4px', wordBreak: 'break-all' }}>
+            proxy: /walletconnect → relay.walletconnect.org
+          </div>
         </div>
-        <div style={{ color: '#888', marginTop: '4px', wordBreak: 'break-all' }}>
-          proxy: /walletconnect → relay.walletconnect.org
-        </div>
-      </div>
+      )}
 
       {/* Debug Panel — hidden by default, enable with VITE_DEBUG=true */}
       {SHOW_DEBUG_PANEL && debugInfo && (
