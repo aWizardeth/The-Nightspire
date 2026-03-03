@@ -1,4 +1,5 @@
 import type { Fighter, MoveKind, BattleState } from '../store/bowActivityStore';
+import { calculateFighterDamage, resolveTurnOrder } from './fighters';
 
 // ─────────────────────────────────────────────────────────────────
 //  Privacy-First Battle Engine
@@ -81,18 +82,9 @@ export const MOVES: Record<NonNullable<MoveKind>, MoveData> = {
   },
 };
 
-// Element effectiveness matrix
-const ELEMENT_EFFECTIVENESS: Record<string, Record<string, number>> = {
-  Fire: { Water: 0.5, Nature: 2.0, Ice: 2.0, Fire: 0.5 },
-  Water: { Fire: 2.0, Electric: 0.5, Nature: 0.5, Water: 0.5 },
-  Nature: { Water: 2.0, Fire: 0.5, Electric: 2.0, Nature: 0.5 },
-  Electric: { Water: 2.0, Nature: 0.5, Electric: 0.5 },
-  Shadow: { Spirit: 2.0, Arcane: 0.5, Shadow: 0.5 },
-  Ice: { Fire: 0.5, Water: 2.0, Ice: 0.5 },
-  Arcane: { Shadow: 2.0, Corruption: 2.0, Arcane: 0.5 },
-  Spirit: { Shadow: 0.5, Corruption: 2.0, Spirit: 0.5 },
-  Corruption: { Spirit: 0.5, Arcane: 0.5, Corruption: 0.5 },
-};
+// Element effectiveness is authoritative in fighters.ts
+// Re-exported here for move-description tooltips
+export { ELEMENT_EFFECTIVENESS } from './fighters';
 
 export class PrivacyBattleEngine {
   private battleState: BattleState;
@@ -109,44 +101,20 @@ export class PrivacyBattleEngine {
     isShielded: boolean = false
   ): number {
     if (!move || move === 'SHIELD') return 0;
-    
-    const moveData = MOVES[move];
-    let baseDamage = moveData.damage;
-    
-    // Apply attacker's attack stat
-    const attackBonus = Math.floor((attacker.stats.atk - 15) / 2);
-    baseDamage += attackBonus;
-    
-    // Apply defender's defense stat
-    const defenseReduction = Math.floor((defender.stats.def - 10) / 3);
-    baseDamage = Math.max(1, baseDamage - defenseReduction);
-    
-    // Apply element effectiveness
-    const effectiveness = this.getElementEffectiveness(moveData.element, defender.weakness);
-    baseDamage = Math.floor(baseDamage * effectiveness);
-    
-    // Apply shield protection
-    if (isShielded) {
-      baseDamage = Math.floor(baseDamage * 0.5);
-    }
-    
-    // Add small random variance (±10%)
-    const variance = 0.9 + Math.random() * 0.2;
-    const finalDamage = Math.floor(baseDamage * variance);
-    
-    return Math.max(1, finalDamage);
-  }
 
-  // Get element effectiveness multiplier
-  private getElementEffectiveness(moveElement: string, defenderWeakness: string): number {
-    if (moveElement === defenderWeakness) return 2.0; // Super effective
-    
-    const effectiveness = ELEMENT_EFFECTIVENESS[moveElement];
-    if (effectiveness && effectiveness[defenderWeakness]) {
-      return effectiveness[defenderWeakness];
+    const moveData = MOVES[move];
+
+    // Use the authoritative damage formula from fighters.ts
+    let damage = calculateFighterDamage(moveData.damage, attacker, defender);
+
+    // Shield halves damage on top of the base formula
+    if (isShielded) {
+      damage = Math.floor(damage * 0.5);
     }
-    
-    return 1.0; // Normal effectiveness
+
+    // Small random variance (±10%)
+    const variance = 0.9 + Math.random() * 0.2;
+    return Math.max(1, Math.floor(damage * variance));
   }
 
   // Execute a battle round with two moves
@@ -165,9 +133,7 @@ export class PrivacyBattleEngine {
     let player2Damage = 0;
 
     // Determine turn order based on speed
-    const player1Speed = player1Fighter.stats.spd;
-    const player2Speed = player2Fighter.stats.spd;
-    const player1First = player1Speed >= player2Speed;
+    const player1First = resolveTurnOrder(player1Fighter, player2Fighter) === 'player-first';
 
     // Check for shields
     const player1Shielded = player1Move === 'SHIELD';

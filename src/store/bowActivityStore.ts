@@ -8,15 +8,9 @@ import { persist } from 'zustand/middleware';
 
 export type MoveKind = 'SCRATCH' | 'EMBER' | 'BUBBLE' | 'VINE' | 'THUNDER' | 'SHADOW' | 'BLIZZARD' | 'SHIELD' | null;
 
-export interface Fighter {
-  source: 'user' | 'gym';
-  name: string;
-  stats: { hp: number; atk: number; def: number; spd: number };
-  strength: 'Fire' | 'Water' | 'Nature' | 'Electric' | 'Shadow' | 'Ice' | 'Arcane' | 'Spirit' | 'Corruption';
-  weakness: 'Fire' | 'Water' | 'Nature' | 'Electric' | 'Shadow' | 'Ice' | 'Arcane' | 'Spirit' | 'Corruption';
-  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
-  effect?: string;
-}
+/** Re-exported for consumers that import from the store */
+export type { Fighter, RarityTier, ElementType } from '../lib/fighters';
+import type { Fighter } from '../lib/fighters';
 
 export interface NFTData {
   id: string;
@@ -104,7 +98,7 @@ const DEFAULT_FIGHTER: Fighter = {
   strength: 'Arcane',
   weakness: 'Shadow',
   rarity: 'Common',
-};
+} as const;
 
 export const useBowActivityStore = create<BowActivityStore>()(
   persist(

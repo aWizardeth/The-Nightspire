@@ -10,6 +10,11 @@
 
 import type { WalletNft } from '../providers/WalletConnectProvider';
 import type { Fighter, NFTData } from '../store/bowActivityStore';
+import {
+  nftToFighter    as collectionNftToFighter,
+  getApprovedCollection,
+  type NftData     as CollectionNftData,
+} from './fighters';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -18,7 +23,8 @@ type Rarity  = Fighter['rarity'];
 
 const ELEMENTS: Element[] = [
   'Arcane', 'Fire', 'Water', 'Nature', 'Electric',
-  'Shadow', 'Ice', 'Spirit', 'Corruption',
+  'Shadow', 'Ice', 'Spirit', 'Corruption', 'Exile',
+  // 'None' intentionally excluded — not assigned randomly
 ];
 
 const ELEMENT_WEAKNESSES: Record<Element, Element> = {
@@ -31,6 +37,8 @@ const ELEMENT_WEAKNESSES: Record<Element, Element> = {
   Corruption:  'Spirit',
   Spirit:      'Shadow',
   Ice:         'Fire',
+  Exile:       'Corruption',
+  None:        'None',
 };
 
 const TIER_RARITY: Record<string, Rarity> = {
@@ -94,7 +102,43 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
   const displayName =
     attrStr(nft, 'name') ?? (nft.name as string | undefined) ?? `Wizard #${index + 1}`;
 
-  // ── Tier / APS ──────────────────────────────────────────────────
+  // ── Approved-collection fast path ──────────────────────────────
+  // Check for a collectionId field on the NFT (some wallets expose it)
+  const rawCollectionId: string | undefined =
+    (nft as unknown as { collectionId?: string }).collectionId ??
+    attrStr(nft, 'collectionId') ?? attrStr(nft, 'collection_id');
+
+  if (rawCollectionId && getApprovedCollection(rawCollectionId)) {
+    const image =
+      (nft.thumbnailUri as string | undefined) ??
+      (nft.imageUri    as string | undefined)  ??
+      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+
+    const collectionNft: CollectionNftData = {
+      nftId:        id,
+      name:         displayName,
+      collectionId: rawCollectionId,
+      traits:       (nft.attributes ?? []).map(a => ({
+        trait_type: a.trait_type ?? '',
+        value:      a.value ?? '',
+      })),
+      imageUri: image,
+    };
+
+    const fighter = collectionNftToFighter(collectionNft);
+    if (fighter) {
+      return {
+        id,
+        tokenId: id,
+        name:    displayName,
+        image,
+        attributes: collectionNft.traits,
+        fighter:    fighter as unknown as Fighter,
+      };
+    }
+  }
+
+  // ── Generic fallback path ───────────────────────────────────────
   const tierRaw = attrStr(nft, 'tier') ?? attrStr(nft, 'Tier');
   const wins    = attrNum(nft, 'wins')   ?? 0;
   const losses  = attrNum(nft, 'losses') ?? 0;

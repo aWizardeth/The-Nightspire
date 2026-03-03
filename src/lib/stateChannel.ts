@@ -1,6 +1,107 @@
 import type { BattleState, Fighter, MoveKind } from '../store/bowActivityStore';
 
 // ─────────────────────────────────────────────────────────────────
+//  Chia State Channel Protocol Types
+//  Ported from arcane-battle-protocol/state-channel/channel_template.ts
+// ─────────────────────────────────────────────────────────────────
+
+/** Half-signatures from each peer for the channel and unroll transactions */
+export interface PotatoSignatures {
+  my_channel_half_signature_peer:  string;   // BLS G2 hex
+  my_unroll_half_signature_peer:   string;   // BLS G2 hex
+}
+
+/** BLS keys used to build the 2-of-2 aggregate channel coin */
+export interface ChannelKeys {
+  party_a_channel_public_key:   string;   // G1 hex
+  party_b_channel_public_key:   string;   // G1 hex
+  party_a_unroll_public_key:    string;   // G1 hex
+  party_b_unroll_public_key:    string;   // G1 hex
+  aggregate_channel_pk:         string;   // G1 hex — BLS aggregate of channel keys
+  aggregate_unroll_pk:          string;   // G1 hex — BLS aggregate of unroll keys
+}
+
+export type ChannelStatus =
+  | 'pending'     // waiting for both parties to lock funds
+  | 'locked'      // coin created on-chain, channel open
+  | 'active'      // first state update signed
+  | 'settling'    // unroll transaction broadcast
+  | 'settled'     // final settlement confirmed
+  | 'cancelled';  // cancelled before lock
+
+/** On-chain coin reference */
+export interface CoinInfo {
+  parent_coin_info: string;   // hex
+  puzzle_hash:      string;   // hex
+  amount:           bigint;   // mojos
+}
+
+export interface CoinSpend {
+  coin:           CoinInfo;
+  puzzle_reveal:  string;   // serialised CLVM hex
+  solution:       string;   // serialised CLVM hex
+}
+
+export interface SpendBundle {
+  coin_spends:          CoinSpend[];
+  aggregated_signature: string;   // BLS G2 hex
+}
+
+/** Full state channel record — mirrors the on-chain channel coin state */
+export interface StateChannel {
+  channelId:          string;
+  gameType:           string;
+  status:             ChannelStatus;
+  // Parties
+  partyAWallet:       string;
+  partyBWallet:       string;
+  partyAPeerId:       string;
+  partyBPeerId:       string;
+  // Keys & signatures
+  channelKeys?:       ChannelKeys;
+  signatures?:        PotatoSignatures;
+  // Balances (mojos)
+  partyABalance:      bigint;
+  partyBBalance:      bigint;
+  totalAmount:        bigint;
+  // On-chain refs
+  channelCoin?:       CoinInfo;
+  fundingBundle?:     SpendBundle;
+  settlementBundle?:  SpendBundle;
+  // Timestamps
+  createdAt:          number;
+  updatedAt:          number;
+}
+
+// ─── Channel Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Stub — open a state channel by assembling a funding spend bundle.
+ * Full implementation requires wallet signing (walletSignCoinSpends).
+ * TODO: wire to WalletConnect chip0002_signCoinSpends
+ */
+export async function openChannel(
+  _channel: StateChannel,
+  _keys: ChannelKeys,
+): Promise<SpendBundle> {
+  // TODO: construct 2-of-2 funding puzzle, request wallet signatures
+  throw new Error('[aWizard] openChannel: not yet implemented');
+}
+
+/**
+ * Stub — co-sign a state update (potato pass).
+ * TODO: wire to BLS half-signature exchange over PeerJS
+ */
+export async function updateChannelState(
+  _channel: StateChannel,
+  _newPartyABalance: bigint,
+  _newPartyBBalance: bigint,
+): Promise<PotatoSignatures> {
+  // TODO: compute new state hash, request half-sigs from both peers
+  throw new Error('[aWizard] updateChannelState: not yet implemented');
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  State Channel Relay Interface for Discord Activity
 //  Handles communication with other battle relays and validation
 // ─────────────────────────────────────────────────────────────────
