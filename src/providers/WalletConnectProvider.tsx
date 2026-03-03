@@ -82,6 +82,8 @@ export interface WalletConnectContextValue {
   /** true once SignClient has finished initializing */
   clientReady: boolean;
   error: string | null;
+  /** Result of the relay WebSocket probe: null=pending, true=open, string=error/close reason */
+  relayProbeStatus: null | true | string;
 }
 
 const WalletConnectContext = createContext<WalletConnectContextValue | null>(null);
@@ -94,6 +96,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   const [clientReady, setClientReady]   = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [relayProbeStatus, setRelayProbeStatus] = useState<null | true | string>(null);
 
   // Fetch the first BLS public key from the wallet — stable on-chain identity.
   const fetchWalletAddress = useCallback(async (sess: SessionTypes.Struct) => {
@@ -169,22 +172,32 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       console.log('[aWizard] Discord iframe — relayUrl:', relayUrl);
 
       // ── Connectivity probe: raw WebSocket test before SignClient ──
-      // Tells us whether the proxy path + relay accept the connection.
-      const probeWs = new WebSocket(relayUrl.replace('wss://', 'wss://'));
-      const probeTimer = setTimeout(() => { probeWs.close(); console.warn('[aWizard] ⚠️ Relay probe: TIMEOUT (relay may be blocking connection)'); }, 5000);
+      // Result is surfaced in relayProbeStatus for on-screen display.
+      const probeWs = new WebSocket(relayUrl);
+      const probeTimer = setTimeout(() => {
+        probeWs.close();
+        const msg = 'TIMEOUT — relay not responding after 5s';
+        console.warn('[aWizard] ⚠️ Relay probe:', msg);
+        setRelayProbeStatus(msg);
+      }, 5000);
       probeWs.addEventListener('open', () => {
         clearTimeout(probeTimer);
-        console.log('[aWizard] ✅ Relay probe: WebSocket OPEN — proxy routing works');
+        console.log('[aWizard] ✅ Relay probe: OPEN');
+        setRelayProbeStatus(true);
         probeWs.close();
       });
-      probeWs.addEventListener('error', (e) => {
+      probeWs.addEventListener('error', () => {
         clearTimeout(probeTimer);
-        console.error('[aWizard] ❌ Relay probe: WebSocket ERROR — proxy path broken or relay rejecting', e);
+        const msg = 'WebSocket ERROR — proxy path unreachable (check URL Mapping in Discord Dev Portal)';
+        console.error('[aWizard] ❌ Relay probe:', msg);
+        setRelayProbeStatus(msg);
       });
       probeWs.addEventListener('close', (e) => {
         clearTimeout(probeTimer);
-        if (e.code !== 1000) {
-          console.error('[aWizard] ❌ Relay probe: closed with code', e.code, e.reason, '— relay may be rejecting origin discordsays.com. Fix: add *.discordsays.com to WalletConnect Cloud allowed domains.');
+        if (e.code !== 1000 && relayProbeStatus === null) {
+          const msg = `Closed code=${e.code} reason="${e.reason || 'none'}" — relay may be rejecting origin. Add *.discordsays.com to WalletConnect Cloud allowed domains.`;
+          console.error('[aWizard] ❌ Relay probe:', msg);
+          setRelayProbeStatus(msg);
         }
       });
     } else {
@@ -421,7 +434,8 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       getNFTs,
       isConnecting,
       clientReady,
-      error
+      error,
+      relayProbeStatus,
     }}>
       {children}
     </WalletConnectContext.Provider>
