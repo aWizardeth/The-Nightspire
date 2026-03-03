@@ -3,29 +3,6 @@ import QRCode from 'react-qr-code';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
 
-/** Polls window.__wcRelayMessages ring-buffer every second and shows it on screen. */
-function RelayMessages() {
-  const [msgs, setMsgs] = useState<string[]>([]);
-  useEffect(() => {
-    const t = setInterval(() => {
-      const ring: string[] = (window as any).__wcRelayMessages ?? [];
-      setMsgs([...ring]);
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (msgs.length === 0) return (
-    <div style={{ color: '#666', marginTop: '4px' }}>inbound frames: none yet</div>
-  );
-  return (
-    <div style={{ marginTop: '6px' }}>
-      <div style={{ color: '#00ff88', marginBottom: '2px' }}>✅ inbound frames received ({msgs.length}):</div>
-      {msgs.map((m, i) => (
-        <div key={i} style={{ color: '#aaa', wordBreak: 'break-all', fontSize: '0.65rem' }}>{m}</div>
-      ))}
-    </div>
-  );
-}
-
 interface WalletTabProps {
   userId: string;
 }
@@ -193,8 +170,6 @@ export default function WalletTab({ userId }: WalletTabProps) {
         <div style={{ color: '#888', marginTop: '4px', wordBreak: 'break-all' }}>
           proxy: /walletconnect → relay.walletconnect.com
         </div>
-        {/* Raw inbound relay frames — proves whether proxy is truly bidirectional */}
-        <RelayMessages />
       </div>
 
       {/* Debug Panel — hidden by default, enable with VITE_DEBUG=true */}
