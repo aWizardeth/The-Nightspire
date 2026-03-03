@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import QRCode from 'react-qr-code';
 import useBowActivityStore from '../store/bowActivityStore';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import { MOVES, getAvailableMoves, createBattle, PrivacyBattleEngine } from '../lib/battleEngine';
@@ -10,11 +11,34 @@ interface BattleTabProps {
 
 export default function BattleTab({ userId }: BattleTabProps) {
   const store = useBowActivityStore();
-  const { session } = useWalletConnect();
+  const { session, connect, cancelConnect, pairingUri, isConnecting, clientReady } = useWalletConnect();
   const [selectedMove, setSelectedMove] = useState<MoveKind>(null);
   const [isSubmittingMove, setIsSubmittingMove] = useState(false);
   const [battleId, setBattleId] = useState<string>('');
+  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
   const engineRef = useRef<PrivacyBattleEngine | null>(null);
+
+  // Show QR when pairing URI appears
+  useEffect(() => {
+    if (pairingUri) setShowQr(true);
+    else setShowQr(false);
+  }, [pairingUri]);
+
+  const handleCopyUri = () => {
+    if (!pairingUri) return;
+    const tryExec = () => {
+      const ta = document.createElement('textarea');
+      ta.value = pairingUri;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    };
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(pairingUri).then(done).catch(() => { tryExec(); done(); });
+    else { tryExec(); done(); }
+  };
 
   /** Build a gym-boss fighter that counters the player's element */
   const makeGymBoss = (player: Fighter): Fighter => {
@@ -111,20 +135,57 @@ export default function BattleTab({ userId }: BattleTabProps) {
     setBattleId('');
   };
 
-  /* ── Not connected state ────────────────────────────────── */
+  /* ── Not connected ──────────────────────────────────────── */
   if (!isConnected) {
     return (
-      <div className="p-3 text-center">
-        <div
-          className="rounded-xl p-4"
-          style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.25)' }}
-        >
-          <div className="text-3xl mb-2">⚔️</div>
+      <div className="p-3 space-y-3">
+        <div className="rounded-xl p-4 text-center" style={{ background: 'linear-gradient(135deg, rgba(0,217,255,0.1), rgba(255,102,0,0.1))', border: '1px solid rgba(0,217,255,0.3)' }}>
+          <div className="text-3xl mb-1">⚔️</div>
           <h2 className="text-base font-bold glow-text mb-1">Battle Arena</h2>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Tap the <strong style={{ color: '#4ade80' }}>☰</strong> menu to connect your Sage wallet
-          </p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Connect your Sage wallet to battle with your NFT fighters</p>
         </div>
+
+        {/* QR shown */}
+        {showQr && pairingUri ? (
+          <div className="space-y-3">
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              Scan with <strong style={{ color: '#00d9ff' }}>Sage mobile</strong> or paste URI in <strong style={{ color: '#00d9ff' }}>Sage desktop</strong>
+            </p>
+            <div className="flex justify-center">
+              <div className="p-3 rounded-xl" style={{ background: '#fff' }}>
+                <QRCode value={pairingUri} size={180} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <input readOnly value={pairingUri} onFocus={(e) => e.target.select()} className="flex-1 rounded-lg px-2 py-1.5 text-xs font-mono truncate" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-color)', outline: 'none', minWidth: 0 }} />
+              <button onClick={handleCopyUri} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: copied ? '#10b981' : '#00d9ff', color: '#000', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                {copied ? '✓ Copied' : '📋 Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>Sage desktop → WalletConnect → Paste URI</p>
+            <button onClick={cancelConnect} className="w-full py-1.5 rounded-lg text-sm" style={{ background: 'transparent', border: '1px solid rgba(255,100,100,0.4)', color: '#ff8080', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        ) : isConnecting ? (
+          <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.3)' }}>
+            <p className="text-sm font-semibold" style={{ color: '#00d9ff' }}>⚡ Generating QR code…</p>
+          </div>
+        ) : (
+          <button
+            onClick={connect}
+            disabled={!clientReady}
+            className="w-full py-3 rounded-xl font-bold text-sm"
+            style={{
+              background: !clientReady ? 'rgba(60,60,60,0.6)' : 'linear-gradient(135deg, #00d9ff, #ff6600)',
+              color: '#fff',
+              border: !clientReady ? '1px solid rgba(255,255,255,0.15)' : '2px solid rgba(255,255,255,0.3)',
+              boxShadow: !clientReady ? 'none' : '0 0 20px rgba(0,217,255,0.4)',
+              cursor: !clientReady ? 'not-allowed' : 'pointer',
+              opacity: !clientReady ? 0.5 : 1,
+            }}
+          >
+            {!clientReady ? '⏳ Initializing…' : '🔗 Connect Sage Wallet'}
+          </button>
+        )}
       </div>
     );
   }

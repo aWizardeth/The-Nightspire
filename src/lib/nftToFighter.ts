@@ -117,7 +117,11 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
 
   if (rawCollectionId && getApprovedCollection(rawCollectionId)) {
     // dataUris[0] is the primary image/data URI in chia_getNfts
-    const image = Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined;
+    // Also check metadata.image if metadata was pre-fetched
+    const metaImg = (nft.metadata as Record<string, unknown> | undefined)?.image;
+    const image =
+      (typeof metaImg === 'string' ? metaImg : undefined) ??
+      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
 
     const rawAttrsForCollection = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
     const collectionNft: CollectionNftData = {
@@ -203,4 +207,35 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
 
 export function parseWalletNfts(nfts: WalletNft[]): NFTData[] {
   return nfts.map((n, i) => nftToFighterData(n, i));
+}
+
+/**
+ * Fetch metadataUris[0] for each NFT and attach the parsed JSON as nft.metadata.
+ * Handles IPFS URIs by proxying through a public gateway.
+ * Safe — failures are silently skipped (the NFT still renders with fallback data).
+ */
+export async function fetchNftMetadata(nfts: WalletNft[]): Promise<WalletNft[]> {
+  const resolveUri = (uri: string): string => {
+    if (uri.startsWith('ipfs://')) {
+      return 'https://ipfs.io/ipfs/' + uri.slice(7);
+    }
+    return uri;
+  };
+
+  const enriched = await Promise.all(
+    nfts.map(async (nft) => {
+      const uri = nft.metadataUris?.[0];
+      if (!uri || typeof uri !== 'string') return nft;
+      try {
+        const res = await fetch(resolveUri(uri), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return nft;
+        const meta = await res.json() as Record<string, unknown>;
+        return { ...nft, metadata: meta };
+      } catch {
+        return nft; // timeout / CORS / parse error — use nft as-is
+      }
+    }),
+  );
+
+  return enriched;
 }

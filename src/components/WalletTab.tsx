@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
 import type { Fighter, NFTData } from '../store/bowActivityStore';
-import { parseWalletNfts } from '../lib/nftToFighter';
+import { parseWalletNfts, fetchNftMetadata } from '../lib/nftToFighter';
 
 interface WalletTabProps {
   userId: string;
@@ -76,7 +76,10 @@ export default function WalletTab({ userId }: WalletTabProps) {
     try {
       const raw = await getNFTs();
       console.log('[aWizard Wallet] Raw NFTs:', raw.length, raw);
-      const parsed = parseWalletNfts(raw);
+      // Enrich each NFT with metadata from metadataUris[0] (image + attributes)
+      const enriched = await fetchNftMetadata(raw);
+      console.log('[aWizard Wallet] Metadata fetched for', enriched.filter(n => n.metadata).length, '/', enriched.length, 'NFTs');
+      const parsed = parseWalletNfts(enriched);
       store.setNfts(parsed);
       console.log('[aWizard Wallet] Parsed fighters:', parsed.length);
     } catch (err: unknown) {
