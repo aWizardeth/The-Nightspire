@@ -18,6 +18,7 @@ import {
   getApprovedCollection,
   type NftData     as CollectionNftData,
 } from './fighters';
+import { resolveImageUri } from './chellyzCards';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -119,9 +120,10 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
     // dataUris[0] is the primary image/data URI in chia_getNfts
     // Also check metadata.image if metadata was pre-fetched
     const metaImg = (nft.metadata as Record<string, unknown> | undefined)?.image;
-    const image =
+    const image = resolveImageUri(
       (typeof metaImg === 'string' ? metaImg : undefined) ??
-      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined)
+    );
 
     const rawAttrsForCollection = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
     const collectionNft: CollectionNftData = {
@@ -191,7 +193,12 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
 
   // ── Image ───────────────────────────────────────────────────────
   // dataUris[0] is the primary data/image URI from chia_getNfts
-  const image = Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined;
+  // Also check metadata.image (populated after fetchNftMetadata)
+  const metaImgFallback = (nft.metadata as Record<string, unknown> | undefined)?.image;
+  const rawImage =
+    (typeof metaImgFallback === 'string' ? metaImgFallback : undefined) ??
+    (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+  const image = resolveImageUri(rawImage);
 
   const rawAttrs = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
   const attributes: NFTData['attributes'] = [
@@ -217,7 +224,10 @@ export function parseWalletNfts(nfts: WalletNft[]): NFTData[] {
 export async function fetchNftMetadata(nfts: WalletNft[]): Promise<WalletNft[]> {
   const resolveUri = (uri: string): string => {
     if (uri.startsWith('ipfs://')) {
-      return 'https://ipfs.io/ipfs/' + uri.slice(7);
+      return 'https://nftstorage.link/ipfs/' + uri.slice(7);
+    }
+    if (uri.startsWith('https://ipfs.io/ipfs/')) {
+      return uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
     }
     return uri;
   };

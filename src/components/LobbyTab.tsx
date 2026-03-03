@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react';
+import { useWalletConnect } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
 import { useLobbyStore, type LobbyStep, type LobbyMode } from '../store/lobbyStore';
 import type { StateChannel } from '../lib/stateChannel';
@@ -129,10 +130,12 @@ function ChannelCard({ channel }: { channel: StateChannel }) {
 // ─── LobbyTab ─────────────────────────────────────────────────────────────────
 
 export default function LobbyTab({ userId }: { userId: string }) {
+  const { session, walletAddress, fingerprint } = useWalletConnect();
   const wallet  = useBowActivityStore((s) => s.wallet);
   const fighter = wallet.selectedFighter;
-  const session = wallet.session;
-  const address = wallet.address;
+  // Use the provider's address (walletAddress) or fall back to fingerprint as presence check
+  const address = walletAddress ?? (fingerprint ? `xch1${fingerprint}` : null);
+  const noWallet = !session;
 
   const store      = useLobbyStore();
   const [joinCode, setJoinCode] = useState('');
@@ -143,7 +146,6 @@ export default function LobbyTab({ userId }: { userId: string }) {
   const isOpen    = store.step === 'open';
   const isError   = store.step === 'error';
   const isWaiting = store.step === 'waiting_peer';
-  const noWallet  = !address || !session;
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
