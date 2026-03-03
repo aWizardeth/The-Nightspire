@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^1.4.0",
+    "@upstash/redis": "^1.36.3",
     "@walletconnect/sign-client": "^2.17.0",
     "@walletconnect/types": "^2.17.0",
     "greenwebjs": "^1.1.9",

@@ -1,50 +1,76 @@
 import { type VercelRequest, type VercelResponse } from '@vercel/node';
+import { Redis } from '@upstash/redis';
 
 /**
- * /api/lobbies — Public PvP Lobby Registry
+ * /api/lobbies — Public PvP Lobby Registry (Upstash Redis backend)
  *
- * Keeps an in-memory list of public lobbies. Vercel keeps function instances
- * warm during active use, so this is good enough for a Discord Activity where
- * lobbies are short-lived (30 min TTL auto-cleanup).
+ * Lobbies are stored as JSON strings in Redis with a 30-minute TTL.
+ * Key pattern: bow:lobby:<CODE>
+ * Index key:   bow:lobbies  (Redis Set of active codes, for fast listing)
+ *
+ * Fully serverless-safe — survives cold starts and shared across all
+ * Vercel function instances. Ready for multi-relay federation.
  *
  * GET  /api/lobbies          → { lobbies: PublicLobby[] }
  * POST /api/lobbies          → { ok: true }  body: { code, hostId, hostName? }
  * DELETE /api/lobbies?code=  → { ok: true }
+ *
+ * Env vars required:
+ *   UPSTASH_REDIS_REST_URL
+ *   UPSTASH_REDIS_REST_TOKEN
  */
 
+const TTL_SECONDS = 30 * 60; // 30 minutes
+const LOBBY_KEY   = (code: string) => `bow:lobby:${code}`;
+const INDEX_KEY   = 'bow:lobbies';
+
 interface PublicLobby {
-  code:       string;
-  hostId:     string;
-  hostName:   string;
-  createdAt:  number;
+  code:      string;
+  hostId:    string;
+  hostName:  string;
+  createdAt: number;
 }
 
-// In-memory store — shared within a warm Vercel instance (or cold-start fresh)
-const publicLobbies = new Map<string, PublicLobby>();
-const TTL_MS = 30 * 60 * 1000; // 30 minutes
-
-function evictExpired() {
-  const now = Date.now();
-  for (const [code, lobby] of publicLobbies.entries()) {
-    if (now - lobby.createdAt > TTL_MS) publicLobbies.delete(code);
+let redis: Redis;
+function getRedis(): Redis {
+  if (!redis) {
+    redis = new Redis({
+      url:   process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    });
   }
+  return redis;
 }
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  evictExpired();
+  const db = getRedis();
 
+  // ── GET — list all active public lobbies ────────────────────────────────
   if (req.method === 'GET') {
-    const lobbies = Array.from(publicLobbies.values())
+    const codes = await db.smembers(INDEX_KEY);
+    if (codes.length === 0) return res.status(200).json({ lobbies: [] });
+
+    const entries = await Promise.all(
+      codes.map((code) => db.get<PublicLobby>(LOBBY_KEY(code))),
+    );
+    // Filter nulls (expired TTL but index not yet cleaned)
+    const lobbies = (entries.filter(Boolean) as PublicLobby[])
       .sort((a, b) => b.createdAt - a.createdAt);
+
+    // Prune stale codes from index (expired keys returned null)
+    const stale = codes.filter((_, i) => entries[i] === null);
+    if (stale.length) await db.srem(INDEX_KEY, ...stale);
+
     return res.status(200).json({ lobbies });
   }
 
+  // ── POST — register a new public lobby ──────────────────────────────────
   if (req.method === 'POST') {
     const { code, hostId, hostName = 'Anonymous Wizard' } = req.body ?? {};
     if (!code || typeof code !== 'string' || code.length !== 6) {
@@ -53,20 +79,24 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     if (!hostId || typeof hostId !== 'string') {
       return res.status(400).json({ error: 'hostId required' });
     }
-    publicLobbies.set(code.toUpperCase(), {
-      code: code.toUpperCase(),
+    const lobby: PublicLobby = {
+      code:      code.toUpperCase(),
       hostId,
-      hostName: String(hostName).slice(0, 32),
+      hostName:  String(hostName).slice(0, 32),
       createdAt: Date.now(),
-    });
-    console.log(`[aWizard Lobbies] Registered public lobby ${code} by ${hostId}`);
+    };
+    await db.set(LOBBY_KEY(lobby.code), lobby, { ex: TTL_SECONDS });
+    await db.sadd(INDEX_KEY, lobby.code);
+    console.log(`[aWizard Lobbies] Registered public lobby ${lobby.code} by ${hostId}`);
     return res.status(200).json({ ok: true });
   }
 
+  // ── DELETE — remove a lobby (host exited) ───────────────────────────────
   if (req.method === 'DELETE') {
     const code = String(req.query.code ?? '').toUpperCase();
-    if (publicLobbies.has(code)) {
-      publicLobbies.delete(code);
+    if (code.length === 6) {
+      await db.del(LOBBY_KEY(code));
+      await db.srem(INDEX_KEY, code);
       console.log(`[aWizard Lobbies] Removed public lobby ${code}`);
     }
     return res.status(200).json({ ok: true });
