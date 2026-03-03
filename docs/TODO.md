@@ -8,10 +8,10 @@
 ## Backlog
 
 ### ⚡ State Channel Battles (Mainnet)
-- [ ] **Align channelOpen.ts with bow-app real CLVM coin spend**
-  - Replace `solution: '0x80'` stub with greenwebjs `buildStandardSolution(puzHash, amount, memo)` → REMARK + CREATE_COIN
-  - Add `greenwebjs` as a dependency and use for p2 standard coin solution serialisation
-  - Derive player's puzzle hash from wallet address (bech32m → puzzleHash → `0x` hex)
+- [x] **Align channelOpen.ts with bow-app real CLVM coin spend**
+  - `buildStandardSolution(puzHash, amount, memo)` ported from bow-app — REMARK + CREATE_COIN via greenwebjs
+  - `greenwebjs@1.1.9` installed; Vite `optimizeDeps.include` set so CJS pre-bundles correctly
+  - Puzzle hash taken directly from coin returned by `getSpendableCoin()` — no bech32m decode needed
 - [ ] **Wire Chellyz game start → open state channel (1 mojo, mainnet)**
   - `ChellyzTab` "Start Game" button triggers `useLobbyStore.openGymLobby()` before entering play
   - Show Sage wallet signing prompt before allowing the first card play

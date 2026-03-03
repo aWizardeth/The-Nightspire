@@ -13,6 +13,7 @@
     "@discord/embedded-app-sdk": "^1.4.0",
     "@walletconnect/sign-client": "^2.17.0",
     "@walletconnect/types": "^2.17.0",
+    "greenwebjs": "^1.1.9",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

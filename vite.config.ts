@@ -14,6 +14,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  optimizeDeps: {
+    // greenwebjs ships as CJS; pre-bundle it so Vite serves it as ESM
+    include: ['greenwebjs'],
+  },
   server: {
     port: 5173,
     // Allow Discord's iframe to embed this during development

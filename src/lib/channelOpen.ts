@@ -25,6 +25,7 @@
 import type {
   StateChannel, ChannelKeys, CoinInfo, SpendBundle, CoinSpend, BondType,
 } from './stateChannel';
+import * as GreenWeb from 'greenwebjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -166,7 +167,51 @@ export function createPendingChannel(
     updatedAt:     now,
   };
 }
+// ─── CLVM helpers (ported from bow-app/app/channel/page.tsx) ─────────────────────────
 
+/** CLVM atom-length prefix for N bytes (for REMARK condition encoding) */
+function clvmAtomPrefix(len: number): string {
+  if (len === 0) return '80';           // nil
+  if (len <= 0x3f) return (0x80 | len).toString(16).padStart(2, '0');
+  if (len <= 0x1fff) {
+    const hi = 0xc0 | (len >> 8);
+    const lo = len & 0xff;
+    return hi.toString(16).padStart(2, '0') + lo.toString(16).padStart(2, '0');
+  }
+  throw new Error(`[aWizard] Memo too large for CLVM atom: ${len}`);
+}
+
+/**
+ * Build a standard p2 coin solution using greenwebjs:
+ *  - REMARK condition with `memo`
+ *  - CREATE_COIN back to sender for `totalAmount` (net-zero spend)
+ * Returns 0x-prefixed CLVM hex.
+ *
+ * Mirrors bow-app/app/channel/page.tsx `buildStandardSolution`.
+ */
+function buildStandardSolution(
+  senderPuzzleHashHex: string,
+  totalAmount: number,
+  memo: string,
+): string {
+  const ph = senderPuzzleHashHex.replace(/^0x/, '');
+
+  // Encode memo as hex (truncate to 63 chars to stay within CLVM atom limits)
+  const memoBytes  = new TextEncoder().encode(memo.slice(0, 63));
+  const memoHex    = Array.from(memoBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  // REMARK condition: (1 memo_bytes) — ff 01 ff <atom> 80
+  const atomPrefix = clvmAtomPrefix(memoBytes.length);
+  const remarkHex  = 'ff01ff' + atomPrefix + memoHex + '80';
+  const remarkCond = GreenWeb.util.sexp.fromHex(remarkHex);
+
+  // CREATE_COIN condition: (51 puzzle_hash amount)
+  const createCoinCond = GreenWeb.spend.createCoinCondition(ph, totalAmount);
+
+  // Build solution: ((q . conditions) ())
+  const solution = GreenWeb.util.sexp.standardCoinSolution([remarkCond, createCoinCond]);
+  return '0x' + GreenWeb.util.sexp.toHex(solution);
+}
 // ─── WalletConnect signing ────────────────────────────────────────────────────
 
 /**
@@ -174,11 +219,8 @@ export function createPendingChannel(
  *
  * Mirrors bow-app/app/channel/page.tsx `handleFund`:
  *   - Uses the real coin + puzzle returned by getSpendableCoin()
- *   - Sends coin back to self (standard p2 self-spend) with a REMARK memo
- *     to mark the channel open on-chain
- *
- * TODO: Replace `puzzle_reveal` / `solution` stubs with real greenwebjs
- *       CLVM serialisation once greenwebjs is added as a dependency.
+ *   - Net-zero spend: CREATE_COIN back to self + REMARK memo to mark channel open
+ *   - Solution built with greenwebjs (REMARK + CREATE_COIN conditions)
  *
  *   chip0002_signCoinSpends docs (xch-dev/sage):
  *     params: { coin_spends: CoinSpend[], partial: boolean, auto_submit: boolean }
@@ -194,15 +236,20 @@ export async function requestFundingSignature(
   }
 
   const isPartial = channel.gameType === 'pvp'; // PvP needs half-sig only
-  const memo = `BoW open ${channel.channelId.slice(0, 12)} ${channel.bondType}`;
+  const addrTag   = channel.partyAWallet.slice(0, 16);
+  const memo      = `BoW open ${channel.bondType} ${addrTag}`;
 
-  // Use the real puzzle from the wallet; solution is a standard p2 self-spend
-  // TODO: build proper solution with greenwebjs:
-  //   buildStandardSolution(coin.puzzle_hash, coin.amount, memo) → CLVM hex
+  // Build real p2 standard solution: REMARK + CREATE_COIN back to self
+  const solution = buildStandardSolution(
+    realCoin.coin.puzzle_hash,
+    Number(realCoin.coin.amount),
+    memo,
+  );
+
   const coinSpend: CoinSpend = {
     coin:          realCoin.coin,
     puzzle_reveal: realCoin.puzzle,
-    solution:      '0x80', // TODO: real p2 solution (REMARK + CREATE_COIN back to self)
+    solution,
   };
 
   const result: { spend_bundle: SpendBundle } = await session.request({
