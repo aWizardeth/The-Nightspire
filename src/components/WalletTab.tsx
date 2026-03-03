@@ -295,13 +295,17 @@ export default function WalletTab({ userId }: WalletTabProps) {
                     />
                     <button
                       onClick={handleCopy}
-                      className="px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
+                      className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0"
                       style={{
-                        backgroundColor: copied ? '#10b981' : 'var(--accent-secondary)',
-                        color: copied ? '#fff' : '#000',
+                        background: copied ? '#10b981' : 'linear-gradient(135deg, #00d9ff, #0099cc)',
+                        color: '#fff',
+                        border: copied ? '1px solid #10b981' : '1px solid rgba(0,217,255,0.6)',
+                        boxShadow: copied ? '0 0 12px rgba(16,185,129,0.4)' : '0 0 12px rgba(0,217,255,0.3)',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {copied ? '✓ Copied' : 'Copy'}
+                      {copied ? '✓ Copied!' : '📋 Copy URI'}
                     </button>
                   </div>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -342,15 +346,18 @@ export default function WalletTab({ userId }: WalletTabProps) {
                 <button
                   onClick={handleConnect}
                   disabled={isConnecting || !clientReady}
-                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all"
+                  className="w-full px-6 py-4 rounded-lg font-bold text-base transition-all"
                   style={{
                     background: (isConnecting || !clientReady)
-                      ? 'rgba(100,100,100,0.5)' 
-                      : 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-                    color: (isConnecting || !clientReady) ? 'var(--text-muted)' : '#000',
-                    border: 'none',
+                      ? 'rgba(60,60,60,0.6)'
+                      : 'linear-gradient(135deg, #00d9ff, #ff6600)',
+                    color: '#fff',
+                    border: (isConnecting || !clientReady) ? '1px solid rgba(255,255,255,0.15)' : '2px solid rgba(255,255,255,0.3)',
                     cursor: (isConnecting || !clientReady) ? 'not-allowed' : 'pointer',
-                    opacity: (isConnecting || !clientReady) ? 0.6 : 1,
+                    opacity: (isConnecting || !clientReady) ? 0.5 : 1,
+                    boxShadow: (isConnecting || !clientReady) ? 'none' : '0 0 24px rgba(0,217,255,0.4), 0 0 48px rgba(255,102,0,0.2)',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                    letterSpacing: '0.03em',
                   }}
                 >
                   {!clientReady ? '⏳ Initializing...' : isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
