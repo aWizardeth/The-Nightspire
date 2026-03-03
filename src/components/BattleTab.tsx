@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import QRCode from 'react-qr-code';
+import { useState, useRef } from 'react';
 import useBowActivityStore from '../store/bowActivityStore';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import { MOVES, getAvailableMoves, createBattle, PrivacyBattleEngine } from '../lib/battleEngine';
@@ -11,12 +10,10 @@ interface BattleTabProps {
 
 export default function BattleTab({ userId }: BattleTabProps) {
   const store = useBowActivityStore();
-  const { session, connect, cancelConnect, pairingUri, isConnecting, clientReady } = useWalletConnect();
+  const { session } = useWalletConnect();
   const [selectedMove, setSelectedMove] = useState<MoveKind>(null);
   const [isSubmittingMove, setIsSubmittingMove] = useState(false);
   const [battleId, setBattleId] = useState<string>('');
-  const [showQr, setShowQr] = useState(false);
-  const [copied, setCopied] = useState(false);
   const engineRef = useRef<PrivacyBattleEngine | null>(null);
 
   /** Build a gym-boss fighter that counters the player's element */
@@ -41,32 +38,6 @@ export default function BattleTab({ userId }: BattleTabProps) {
       weakness: player.strength as Fighter['strength'],
       rarity:   player.rarity,
     };
-  };
-
-  useEffect(() => {
-    if (pairingUri) setShowQr(true);
-    else setShowQr(false);
-  }, [pairingUri]);
-
-  const handleCopyUri = () => {
-    if (!pairingUri) return;
-    const tryExecCopy = () => {
-      const ta = document.createElement('textarea');
-      ta.value = pairingUri;
-      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try { document.execCommand('copy'); } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    };
-    const finish = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(pairingUri).then(finish).catch(() => { tryExecCopy(); finish(); });
-    } else {
-      tryExecCopy();
-      finish();
-    }
   };
 
   const selectedFighter = store.wallet.selectedFighter;
@@ -143,102 +114,17 @@ export default function BattleTab({ userId }: BattleTabProps) {
   /* ── Not connected state ────────────────────────────────── */
   if (!isConnected) {
     return (
-      <div className="max-w-lg mx-auto p-6 space-y-4">
-        {/* Hero */}
+      <div className="p-3 text-center">
         <div
-          className="rounded-xl p-6 text-center"
-          style={{
-            background: 'linear-gradient(135deg, rgba(0,217,255,0.12), rgba(255,102,0,0.12))',
-            border: '1px solid rgba(0,217,255,0.3)',
-          }}
+          className="rounded-xl p-4"
+          style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.25)' }}
         >
-          <div className="text-4xl mb-3">⚔️</div>
-          <h2 className="text-xl font-bold glow-text mb-2">Battle Arena</h2>
-          <p style={{ color: 'var(--text-muted)' }} className="text-sm">
-            Connect your Sage wallet to enter battle with your NFT fighters
+          <div className="text-3xl mb-2">⚔️</div>
+          <h2 className="text-base font-bold glow-text mb-1">Battle Arena</h2>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Tap the <strong style={{ color: '#4ade80' }}>☰</strong> menu to connect your Sage wallet
           </p>
         </div>
-
-        {/* Connect flow */}
-        {!showQr ? (
-          <button
-            onClick={connect}
-            disabled={isConnecting || !clientReady}
-            className="w-full px-6 py-4 rounded-xl font-bold text-base transition-all"
-            style={{
-              background: (isConnecting || !clientReady)
-                ? 'rgba(60,60,60,0.6)'
-                : 'linear-gradient(135deg, #00d9ff, #ff6600)',
-              color: '#fff',
-              border: (isConnecting || !clientReady) ? '1px solid rgba(255,255,255,0.15)' : '2px solid rgba(255,255,255,0.3)',
-              cursor: (isConnecting || !clientReady) ? 'not-allowed' : 'pointer',
-              opacity: (isConnecting || !clientReady) ? 0.5 : 1,
-              boxShadow: (isConnecting || !clientReady) ? 'none' : '0 0 24px rgba(0,217,255,0.4), 0 0 48px rgba(255,102,0,0.2)',
-              textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-              letterSpacing: '0.03em',
-            }}
-          >
-            {!clientReady ? '⏳ Initializing...' : isConnecting ? '⚡ Generating QR...' : '🔗 Connect Sage Wallet'}
-          </button>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-              Scan with <strong style={{ color: '#00d9ff' }}>Sage mobile</strong>, or copy URI into <strong style={{ color: '#00d9ff' }}>Sage desktop</strong>
-            </p>
-
-            {/* QR */}
-            <div className="flex justify-center">
-              <div className="bg-white p-4 rounded-xl">
-                <QRCode value={pairingUri!} size={200} />
-              </div>
-            </div>
-
-            {/* Copy URI */}
-            <div className="flex items-center gap-2">
-              <input
-                readOnly
-                value={pairingUri!}
-                className="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate"
-                style={{
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-color)',
-                  outline: 'none',
-                }}
-                onFocus={(e) => e.target.select()}
-              />
-              <button
-                onClick={handleCopyUri}
-                className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0"
-                style={{
-                  background: copied ? '#10b981' : 'linear-gradient(135deg, #00d9ff, #0099cc)',
-                  color: '#fff',
-                  border: copied ? '1px solid #10b981' : '1px solid rgba(0,217,255,0.6)',
-                  boxShadow: copied ? '0 0 12px rgba(16,185,129,0.4)' : '0 0 12px rgba(0,217,255,0.3)',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {copied ? '✓ Copied!' : '📋 Copy URI'}
-              </button>
-            </div>
-            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-              Sage desktop → WalletConnect → Paste URI
-            </p>
-
-            <button
-              onClick={cancelConnect}
-              className="w-full px-4 py-2 rounded-lg text-sm font-semibold"
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,100,100,0.4)',
-                color: '#ff8080',
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
     );
   }
@@ -247,7 +133,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
   if (!selectedFighter) {
     return (
       <div className="p-6 text-center">
-        <div className="glow-card p-6 mb-4">
+        <div className="glow-card p-3 mb-3">
           <h3 className="glow-text text-lg font-semibold mb-2">🧙 Choose Your Fighter</h3>
           <p style={{ color: 'var(--text-muted)' }}>
             Select a fighter in the Wallet tab to enter battle!
@@ -259,18 +145,18 @@ export default function BattleTab({ userId }: BattleTabProps) {
 
   /* ── Main battle view ───────────────────────────────────── */
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="glow-card p-6">
-        <h1 className="glow-text text-2xl font-bold mb-2">⚔️ Battle Arena</h1>
-        <p style={{ color: 'var(--text-muted)' }}>
+      <div className="glow-card p-3">
+        <h1 className="glow-text text-base font-bold mb-1">⚔️ Battle Arena</h1>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           Privacy-first PvP battles with state channel relay integration
         </p>
       </div>
 
       {/* Fighter Display */}
-      <div className="glow-card p-6">
-        <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold mb-4">🧙 Your Fighter</h2>
+      <div className="glow-card p-3">
+        <h2 style={{ color: 'var(--text-color)' }} className="text-sm font-semibold mb-2">🧙 Your Fighter</h2>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="rounded-lg p-4" style={{ background: 'var(--bg-deep)', border: '1px solid var(--border-color)' }}>
             <h3 className="font-bold text-lg" style={{ color: 'var(--text-color)' }}>{selectedFighter.name}</h3>
@@ -292,10 +178,10 @@ export default function BattleTab({ userId }: BattleTabProps) {
 
       {/* Battle Controls */}
       {!isInBattle ? (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="glow-card p-6">
-            <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold mb-4">🏟️ Create Battle</h2>
-            <p style={{ color: 'var(--text-muted)' }} className="mb-4">
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="glow-card p-3">
+            <h2 style={{ color: 'var(--text-color)' }} className="text-sm font-semibold mb-2">🏙️ Create Battle</h2>
+            <p style={{ color: 'var(--text-muted)' }} className="text-xs mb-3">
               Start a new battle and wait for an opponent to join.
             </p>
             <button onClick={handleCreateBattle} className="glow-btn w-full" style={{ color: 'var(--success)' }}>
@@ -303,9 +189,9 @@ export default function BattleTab({ userId }: BattleTabProps) {
             </button>
           </div>
 
-          <div className="glow-card p-6">
-            <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold mb-4">🔍 Join Battle</h2>
-            <p style={{ color: 'var(--text-muted)' }} className="mb-4">
+          <div className="glow-card p-3">
+            <h2 style={{ color: 'var(--text-color)' }} className="text-sm font-semibold mb-2">🔍 Join Battle</h2>
+            <p style={{ color: 'var(--text-muted)' }} className="text-xs mb-2">
               Enter a battle ID to join an existing match.
             </p>
             <input
@@ -335,7 +221,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
       )}
 
       {/* Battle Log */}
-      <div className="glow-card p-6">
+      <div className="glow-card p-3">
         <div className="flex justify-between items-center mb-4">
           <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold">📜 Battle Log</h2>
           <button onClick={store.clearBattleLogs} className="text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
@@ -385,7 +271,7 @@ function BattleInterface({
   return (
     <div className="space-y-6">
       {/* Battle Status */}
-      <div className="glow-card p-6">
+      <div className="glow-card p-3">
         <div className="flex justify-between items-center mb-4">
           <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold">⚔️ Round {battle.roundNumber}</h2>
           <div className="flex gap-2">
@@ -438,7 +324,7 @@ function BattleInterface({
 
       {/* Move Selection */}
       {battle.status === 'commit' && isMyTurn && (
-        <div className="glow-card p-6">
+        <div className="glow-card p-3">
           <h2 style={{ color: 'var(--text-color)' }} className="text-lg font-semibold mb-4">🎯 Choose Your Move</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {availableMoves.map((move) => {
@@ -482,7 +368,7 @@ function BattleInterface({
       )}
 
       {battle.status === 'commit' && !isMyTurn && (
-        <div className="glow-card p-6 text-center">
+        <div className="glow-card p-3 text-center">
           <h3 className="font-semibold mb-2" style={{ color: 'var(--warning)' }}>⏳ Waiting for Opponent</h3>
           <p style={{ color: 'var(--text-muted)' }}>Your opponent is choosing their move...</p>
         </div>

@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import QRCode from 'react-qr-code';
+import { useState } from 'react';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
 import type { Fighter, NFTData } from '../store/bowActivityStore';
@@ -57,65 +56,19 @@ const RARITY_COLOURS: Record<string, string> = {
 
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
-  const [showQr, setShowQr] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [isLoadingNfts, setIsLoadingNfts] = useState(false);
   const [nftError, setNftError] = useState<string | null>(null);
   const debugInfo = SHOW_DEBUG_PANEL ? getDebugInfo() : null;
-  
+
   const {
     session,
-    pairingUri,
-    fingerprint,
-    walletAddress,
-    connect,
-    disconnect,
-    cancelConnect,
     getNFTs,
     isConnecting,
     clientReady,
     error,
     relayProbeStatus,
   } = useWalletConnect();
-
-  // Auto-show QR when pairing URI is available
-  useEffect(() => {
-    console.log('[aWizard Wallet] pairingUri changed:', pairingUri);
-    if (pairingUri) setShowQr(true);
-    else setShowQr(false);
-  }, [pairingUri]);
-
-  useEffect(() => {
-    console.log('[aWizard Wallet] State:', { showQr, pairingUri: !!pairingUri, isConnecting, clientReady, session: !!session, error });
-  }, [showQr, pairingUri, isConnecting, clientReady, session, error]);
-
-  const handleCopy = () => {
-    if (!pairingUri) return;
-    // navigator.clipboard is blocked in Discord's iframe — use execCommand fallback
-    const tryExecCopy = () => {
-      const ta = document.createElement('textarea');
-      ta.value = pairingUri;
-      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try { document.execCommand('copy'); } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    };
-    const finish = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(pairingUri).then(finish).catch(() => { tryExecCopy(); finish(); });
-    } else {
-      tryExecCopy();
-      finish();
-    }
-  };
-
-  const handleDisconnect = async () => {
-    await disconnect();
-    store.setSelectedFighter(null);
-  };
 
   const loadNFTs = async () => {
     setIsLoadingNfts(true);
@@ -139,78 +92,16 @@ export default function WalletTab({ userId }: WalletTabProps) {
     }
   };
 
-  const handleRefresh = () => {
-    window.location.reload();
-  };
-
-  const handleConnect = async () => {
-    console.log('[aWizard Wallet] 🔵 Connect button clicked!');
-    console.log('[aWizard Wallet] Current state:', { isConnecting, pairingUri: !!pairingUri, session: !!session });
-    try {
-      await connect();
-      console.log('[aWizard Wallet] ✅ Connect function completed');
-    } catch (err) {
-      console.error('[aWizard Wallet] ❌ Connect function error:', err);
-    }
-  };
-
   if (!userId) {
     return (
-      <div className="p-6 text-center">
-        <div className="glow-card" style={{ borderColor: '#ff4444' }}>
-          <h3
-            className="text-lg font-semibold mb-2"
-            style={{ color: '#ff6b6b' }}
-          >
-            🚫 Discord User Required
-          </h3>
-          <p style={{ color: '#ff8a8a' }}>
-            Discord Activity authentication is required to access wallet features.
-          </p>
-        </div>
+      <div className="p-3 text-center">
+        <p className="text-sm" style={{ color: '#ff8a8a' }}>🚫 Discord authentication required</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-
-      {/* Header Banner */}
-      <div
-        className="rounded-lg p-6"
-        style={{
-          background: 'linear-gradient(135deg, rgba(0,217,255,0.15), rgba(255,102,0,0.15))',
-          border: '1px solid var(--border-color)',
-        }}
-      >
-        <div className="flex justify-between items-start mb-2">
-          <h1 className="text-2xl font-bold glow-text">🔐 Privacy-First Wallet</h1>
-          <button
-            onClick={handleRefresh}
-            className="px-3 py-1 rounded text-sm transition-colors"
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: 'var(--text-color)',
-            }}
-            title="Refresh Activity"
-          >
-            🔄 Refresh
-          </button>
-        </div>
-        <p style={{ color: 'var(--text-muted)' }}>
-          Your wallet connection is private and isolated from other Activity users
-        </p>
-        <div
-          className="mt-2 text-sm rounded p-2 font-mono"
-          style={{
-            background: 'rgba(0,0,0,0.3)',
-            color: 'var(--text-color)',
-          }}
-        >
-          <strong>User ID:</strong> {userId}
-        </div>
-      </div>
+    <div className="space-y-2">
 
       {/* Relay status — enable SHOW_RELAY_STATUS to diagnose relay issues */}
       {SHOW_RELAY_STATUS && (
@@ -262,212 +153,17 @@ export default function WalletTab({ userId }: WalletTabProps) {
       </div>
       )}
 
-      {/* Wallet Connection Status */}
-      <div className="glow-card">
-        <h2 className="text-lg font-semibold mb-4 glow-text">🔗 Connection Status</h2>
+      {/* Not connected */}
+      {!session && (
+        <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(0,217,255,0.06)', border: '1px dashed rgba(0,217,255,0.3)' }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-color)' }}>🔮 Wallet not connected</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Tap the <strong style={{ color: '#4ade80' }}>☰</strong> menu in the top-right to connect your Sage wallet
+          </p>
+        </div>
+      )}
 
-        {error && (
-          <div
-            className="rounded-lg p-4 mb-4"
-            style={{
-              background: 'rgba(255,68,68,0.1)',
-              border: '1px solid #ff4444',
-            }}
-          >
-            <p style={{ color: '#ff6b6b' }}>⚠️ Error: {error}</p>
-          </div>
-        )}
-
-        {!session ? (
-          <div>
-            {!clientReady ? (
-              <div className="rounded-lg p-4 mb-4" style={{
-                background: 'rgba(0,217,255,0.08)',
-                border: '1px solid rgba(0,217,255,0.3)',
-              }}>
-                <p style={{ color: '#00d9ff' }} className="font-semibold">
-                  ⚡ Initializing WalletConnect...
-                </p>
-                <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-                  Connecting to relay server
-                </p>
-              </div>
-            ) : isConnecting && !pairingUri ? (
-              <div className="space-y-4">
-                <div className="rounded-lg p-4" style={{
-                  background: 'rgba(0,217,255,0.08)',
-                  border: '1px solid rgba(0,217,255,0.3)',
-                }}>
-                  <p style={{ color: '#00d9ff' }} className="font-semibold">
-                    ⚡ Generating pairing code...
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
-                    Preparing QR code for wallet connection
-                  </p>
-                </div>
-
-                {/* Cancel button */}
-                <button
-                  onClick={cancelConnect}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(255,100,100,0.5)',
-                    color: '#ff6666',
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : showQr && pairingUri ? (
-              <div className="space-y-4">
-                <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-                  Scan with <strong style={{ color: 'var(--accent-primary)' }}>Sage mobile</strong>, or copy the URI into <strong style={{ color: 'var(--accent-primary)' }}>Sage desktop</strong>
-                </p>
-                
-                {/* QR Code */}
-                <div className="flex justify-center">
-                  <div className="bg-white p-4 rounded-lg">
-                    <QRCode value={pairingUri} size={200} />
-                  </div>
-                </div>
-
-                {/* Copy URI */}
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>WalletConnect URI</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      readOnly
-                      value={pairingUri}
-                      className="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate"
-                      style={{
-                        background: 'rgba(0,0,0,0.3)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-color)',
-                        outline: 'none'
-                      }}
-                      onFocus={(e) => e.target.select()}
-                    />
-                    <button
-                      onClick={handleCopy}
-                      className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0"
-                      style={{
-                        background: copied ? '#10b981' : 'linear-gradient(135deg, #00d9ff, #0099cc)',
-                        color: '#fff',
-                        border: copied ? '1px solid #10b981' : '1px solid rgba(0,217,255,0.6)',
-                        boxShadow: copied ? '0 0 12px rgba(16,185,129,0.4)' : '0 0 12px rgba(0,217,255,0.3)',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {copied ? '✓ Copied!' : '📋 Copy URI'}
-                    </button>
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                    In Sage desktop → WalletConnect → Paste URI
-                  </p>
-                </div>
-
-                {/* Cancel button */}
-                <button
-                  onClick={cancelConnect}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(255,100,100,0.5)',
-                    color: '#ff6666',
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div
-                  className="rounded-lg p-4 mb-4"
-                  style={{
-                    background: 'rgba(255,255,0,0.08)',
-                    border: '1px solid rgba(255,255,0,0.3)',
-                  }}
-                >
-                  <p style={{ color: 'var(--text-color)' }}>
-                    <strong>🔌 Disconnected</strong>
-                  </p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>
-                    No active wallet connection found. Connect with Sage to battle!
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting || !clientReady}
-                  className="w-full px-6 py-4 rounded-lg font-bold text-base transition-all"
-                  style={{
-                    background: (isConnecting || !clientReady)
-                      ? 'rgba(60,60,60,0.6)'
-                      : 'linear-gradient(135deg, #00d9ff, #ff6600)',
-                    color: '#fff',
-                    border: (isConnecting || !clientReady) ? '1px solid rgba(255,255,255,0.15)' : '2px solid rgba(255,255,255,0.3)',
-                    cursor: (isConnecting || !clientReady) ? 'not-allowed' : 'pointer',
-                    opacity: (isConnecting || !clientReady) ? 0.5 : 1,
-                    boxShadow: (isConnecting || !clientReady) ? 'none' : '0 0 24px rgba(0,217,255,0.4), 0 0 48px rgba(255,102,0,0.2)',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-                    letterSpacing: '0.03em',
-                  }}
-                >
-                  {!clientReady ? '⏳ Initializing...' : isConnecting ? '⚡ Connecting...' : '🔗 Connect Sage Wallet'}
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div>
-            <div
-              className="rounded-lg p-4 mb-4"
-              style={{
-                background: 'rgba(0,255,0,0.08)',
-                border: '1px solid rgba(0,255,0,0.3)',
-              }}
-            >
-              <p style={{ color: 'var(--text-color)' }}>
-                <strong>✅ Connected</strong>
-              </p>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.9em' }} className="mt-2">
-                {fingerprint && <p><strong>Wallet:</strong> {fingerprint}</p>}
-                {walletAddress && (
-                  <p><strong>Address:</strong> {walletAddress.slice(0, 16)}...</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={loadNFTs}
-                className="glow-button flex-1"
-                style={{
-                  backgroundColor: 'var(--accent-secondary)',
-                  color: '#000',
-                }}
-              >
-                🎯 Load Fighters
-              </button>
-              <button
-                onClick={handleDisconnect}
-                className="glow-button"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #ff6666',
-                  color: '#ff6666',
-                }}
-              >
-                🔌 Disconnect
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Fighter Selection */}
+      {/* Fighter selector — only when connected */}
       {session && (
         <FighterSelector
           nfts={store.wallet.nfts}
@@ -478,26 +174,6 @@ export default function WalletTab({ userId }: WalletTabProps) {
           nftError={nftError}
         />
       )}
-
-      {/* Privacy Notice */}
-      <div
-        className="rounded-lg p-4"
-        style={{
-          background: 'rgba(150,50,255,0.08)',
-          border: '1px solid rgba(150,50,255,0.3)',
-        }}
-      >
-        <h3 className="font-semibold mb-2" style={{ color: '#b388ff' }}>
-          🛡️ Privacy Guarantee
-        </h3>
-        <ul className="text-sm space-y-1" style={{ color: 'rgba(179,136,255,0.8)' }}>
-          <li>• Your wallet connection is isolated per Discord Activity session</li>
-          <li>• Other users cannot see your wallet address or private keys</li>
-          <li>• NFT data is only shared for battle display purposes</li>
-          <li>• Wallet sessions are not persisted after Activity closes</li>
-          <li>• State channels provide privacy-preserving battle proofs</li>
-        </ul>
-      </div>
     </div>
   );
 }
