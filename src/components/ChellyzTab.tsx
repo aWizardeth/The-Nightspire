@@ -28,6 +28,12 @@ import {
 } from '../store/chellyzStore';
 import type { ChellyzCard } from '../lib/chellyzCards';
 import type { TurnPhase } from '../lib/chellyzEngine';
+
+// ─── Wizard hint sizes ────────────────────────────────────────────────────────
+// sm = bench / support cards  md = active card  (slightly larger than before)
+const CARD_SM = 'w-11 h-[60px]';
+const CARD_MD = 'w-14 h-[72px]';
+const CARD_HAND = 'w-14 h-[72px]';
 import useBowActivityStore from '../store/bowActivityStore';
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
@@ -79,7 +85,7 @@ interface CardSlotProps {
 }
 
 function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: CardSlotProps) {
-  const w = size === 'sm' ? 'w-10 h-14' : 'w-12 h-16';
+  const w = size === 'sm' ? CARD_SM : CARD_MD;
   const colorCls = card ? (ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral']) : 'bg-zinc-800/60 border-zinc-600';
   const ringCls  = highlight ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-900' : '';
 
@@ -155,6 +161,89 @@ function DeckPile({ count, label, color = 'bg-zinc-700' }: { count: number; labe
       <div className={`w-10 h-14 rounded border border-zinc-600 ${color} flex items-center justify-center`}>
         <span className="text-xs font-bold text-white">{count}</span>
       </div>
+    </div>
+  );
+}
+
+// ─── In-game Wizard Hint ──────────────────────────────────────────────────────
+
+function WizardHint() {
+  const myPlayer  = useChellyzStore(selectLocalPlayer);
+  const oppPlayer = useChellyzStore(selectOpponent);
+  const phase     = useChellyzStore(selectPhase);
+  const isMyTurn  = useChellyzStore(selectIsMyTurn);
+  const log       = useChellyzStore(selectLog);
+
+  const [hint, setHint]       = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Auto-dismiss after 10s
+  useEffect(() => {
+    if (!hint) return;
+    const t = setTimeout(() => setHint(null), 10000);
+    return () => clearTimeout(t);
+  }, [hint]);
+
+  const askWizard = async () => {
+    if (loading || !myPlayer || !oppPlayer) return;
+    setLoading(true);
+    setHint(null);
+    try {
+      const gameContext = {
+        gameType:      'Chellyz',
+        phase,
+        isMyTurn,
+        myActive:      myPlayer.active?.name ?? 'none',
+        myActiveHp:    myPlayer.active?.currentHp ?? 0,
+        myActiveMaxHp: myPlayer.active?.stats?.maxHp ?? 0,
+        myEnergy:      myPlayer.energy.length,
+        myHandCount:   myPlayer.hand.length,
+        myBench:       myPlayer.bench.filter(Boolean).map((c) => c!.name).join(', ') || 'empty',
+        oppActive:     oppPlayer.active?.name ?? 'none',
+        oppActiveHp:   oppPlayer.active?.currentHp ?? 0,
+        oppActiveMaxHp:oppPlayer.active?.stats?.maxHp ?? 0,
+        recentLog:     log.slice(-2).join(' | '),
+      };
+
+      const res = await fetch('/api/wizard', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message:     'What should I do next? Give me one tactical suggestion.',
+          gameContext,
+          discordContext: { username: 'Wizard' },
+        }),
+      });
+      const data = await res.json() as { reply?: string };
+      setHint(data.reply ?? '🧙 The wizard is lost in thought…');
+    } catch {
+      setHint('⚠️ A curse disrupted the wizard.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="relative flex justify-end items-center">
+      <button
+        onClick={askWizard}
+        disabled={loading}
+        title="Ask the wizard for a hint"
+        className="text-base leading-none disabled:opacity-50 transition-opacity hover:scale-110 active:scale-95"
+      >
+        {loading ? '⏳' : '🧙'}
+      </button>
+      {hint && (
+        <div
+          className="absolute bottom-7 right-0 w-56 rounded-lg p-2 text-[10px] leading-relaxed z-30 cursor-pointer"
+          style={{ background: 'rgba(30,10,60,0.97)', border: '1px solid rgba(139,92,246,0.6)', color: '#e2d9f3' }}
+          onClick={() => setHint(null)}
+        >
+          <span className="block mb-0.5 text-purple-400 font-bold text-[9px] uppercase tracking-wide">🧙 Wizard Hint</span>
+          {hint}
+          <span className="block mt-1 text-[8px] text-zinc-600">tap to dismiss</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -533,7 +622,7 @@ function GameBoard() {
 
       {/* === HAND === */}
       <div className="border-t border-zinc-800 mx-2" />
-      <div className="flex gap-1 overflow-x-auto px-2 py-1 min-h-[68px] scrollbar-hide">
+      <div className="flex gap-1 overflow-x-auto px-2 py-1 min-h-[84px] scrollbar-hide">
         {myPlayer.hand.map((card) => {
           const isSelected = selectedHandCard === card.instanceId;
           const colorCls = ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral'];
@@ -541,7 +630,7 @@ function GameBoard() {
             <button
               key={card.instanceId}
               onClick={() => isMyTurn && handleCardClick(card)}
-              className={`flex-shrink-0 w-12 h-16 rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
+              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
             >
               {card.imageUri ? (
                 <img
@@ -570,15 +659,16 @@ function GameBoard() {
 
       {/* === ACTIONS === */}
       <div className="border-t border-zinc-800 mx-2" />
-      <div className="px-2 py-1 flex items-center justify-center">
+      <div className="px-2 py-1 flex items-start">
         {phase && (
-          <div className="flex flex-col items-center gap-1 w-full">
+          <div className="flex flex-col items-center gap-1 flex-1">
             <span className="text-[9px] text-purple-400 uppercase tracking-wide">
               {isMyTurn ? `Your turn — ${PHASE_LABEL[phase]}` : `${oppPlayer.name}'s turn`}
             </span>
             {renderActionButtons()}
           </div>
         )}
+        <WizardHint />
       </div>
 
       {/* === GAME LOG === */}

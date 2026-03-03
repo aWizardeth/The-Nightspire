@@ -15,22 +15,29 @@ interface WizardChatProps {
 
 export default function WizardChat({ user }: WizardChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'wizard', content: `🧙 Greetings${user?.global_name ? `, ${user.global_name}` : ', traveller'}! I am aWizard — your guide through the Arcane realm. Ask me anything about battles, NFTs, or the leaderboard.` },
+    { role: 'wizard', content: `🧙 Greetings${user?.global_name ? `, ${user.global_name}` : ', traveller'}! I am aWizard — your guide through the Arcane realm. Ask me anything about battles, Chellyz, NFTs, or the leaderboard.` },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const QUICK_PROMPTS = [
+    { label: '🌸 How to play Chellyz?',   text: 'How do I play the Chellyz card game? Explain the basics.' },
+    { label: '⚔️ How does battling work?', text: 'How do PvE gym battles work in Battle of Wizards?' },
+    { label: '📈 How do I raise my APS?',  text: 'How do I raise my Arcane Power Score and unlock better rewards?' },
+    { label: '🏰 What is the Lobby?',      text: 'What is the battle lobby and what is a state channel?' },
+  ];
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function handleSend() {
-    const text = input.trim();
+  async function handleSend(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || loading) return;
 
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
-    setInput('');
+    if (!overrideText) setInput('');
     setLoading(true);
 
     try {
@@ -136,11 +143,27 @@ export default function WizardChat({ user }: WizardChatProps) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Quick prompts — shown until user sends first message */}
+      {messages.length <= 1 && !loading && (
+        <div className="flex flex-wrap gap-1.5 py-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+          {QUICK_PROMPTS.map((qp) => (
+            <button
+              key={qp.label}
+              onClick={() => handleSend(qp.text)}
+              className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
+              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.4)', color: '#c4b5fd' }}
+            >
+              {qp.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSend(); }}
         className="flex gap-2 pt-2"
-        style={{ borderTop: '1px solid var(--border-color)' }}
+        style={{ borderTop: messages.length <= 1 ? 'none' : '1px solid var(--border-color)' }}
       >
         <input
           type="text"

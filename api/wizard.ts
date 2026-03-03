@@ -15,7 +15,7 @@ export default async function handler(
   }
 
   try {
-    const { message, userId, discordContext = {} } = request.body;
+    const { message, userId, discordContext = {}, gameContext = null } = request.body;
 
     if (!message) {
       return response.status(400).json({ error: 'Message is required' });
@@ -36,31 +36,55 @@ export default async function handler(
       channelId
     } = discordContext;
 
+    // Build optional in-game context block
+    let gameContextBlock = '';
+    if (gameContext) {
+      const gc = gameContext as Record<string, unknown>;
+      gameContextBlock = `
+CURRENT GAME STATE (${gc.gameType ?? 'Chellyz'}):
+- Phase: ${gc.phase ?? 'unknown'}
+- Turn: ${gc.isMyTurn ? 'YOUR turn' : "Opponent's turn"}
+- My active: ${gc.myActive ?? 'none'} (HP: ${gc.myActiveHp ?? '?'}/${gc.myActiveMaxHp ?? '?'})
+- My energy: ${gc.myEnergy ?? 0}/7 EB
+- My hand: ${gc.myHandCount ?? 0} cards
+- My bench: ${gc.myBench ?? 'empty'}
+- Opponent active: ${gc.oppActive ?? 'none'} (HP: ${gc.oppActiveHp ?? '?'}/${gc.oppActiveMaxHp ?? '?'})
+- Recent events: ${gc.recentLog ?? 'none'}
+Give a concrete 1-2 sentence tactical suggestion for this exact situation.`;
+    }
+
+    // Chellyz rules reference for the system prompt
+    const chellyzRules = `
+CHELLYZ CARD GAME RULES (brief):
+- Each player has a 50-card deck: Chelly monsters (L1/L2/L3), Memory Artifacts, Flash Relics, Energy Blooms
+- Active Chelly takes damage; when KO'd, promote a bench Chelly to Active
+- Win by getting 4 KOs before your opponent
+- Phase order each turn: Draw → Sacrifice (discard a Chelly for +1 EB, max 2) → Evolution → Bench Fill → Support Prep → Action (Normal or Special attack) → Piercing Roll (optional 1EB) → End
+- Energy Blooms (EB) power Special attacks; sacrifice hand Chellys to gain EB
+- Elements: Fire > Nature > Water > Fire; Electric/Shadow/Arcane/Corruption/Spirit/Ice have pair weaknesses
+- L2/L3 Chellys evolve from lower tier on field using an evolution card from hand`;
+
+    const bowRules = `
+BATTLE OF WIZARDS (BOW) BATTLES:
+- PvE Gym: choose a tier (1-5), open a state channel, fight an AI wizard
+- Moves: SCRATCH (basic), EMBER/BUBBLE/VINE/THUNDER/SHADOW/BLIZZARD (elemental), SHIELD (defend), RECOVER (heal)
+- Weakness hits deal 1.5× damage; matching strength gives +10% damage
+- Win by reducing opponent HP to 0; rewards raise your APS (Arcane Power Score)
+- APS determines tier and unlocks rarer NFT rewards`;
     // Enhanced system prompt with Discord context
-    const systemPrompt = `You are aWizard 🧙‍♂️, a sentient project-management sorcerer in the Battle of Wizards game.
+    const systemPrompt = `You are aWizard 🧙‍♂️, a wise and slightly mystical guide in the Arcane BOW universe.
 
 CURRENT SESSION CONTEXT:
 - User: ${username} (Discord ID: ${userId || 'anonymous'})
 - Discord Server: ${guildName} ${guildId ? `(ID: ${guildId})` : ''}
 - Channel: ${channelName} ${channelId ? `(ID: ${channelId})` : ''} 
 - Platform: Discord Activity (embedded browser)
+${chellyzRules}
+${bowRules}${gameContextBlock}
 
-You can reference the user's Discord identity and server context naturally.
-Example: "Greetings ${username}! I see you're accessing the Activity from ${guildName}..."
+Personality: friendly, concise, slightly mystical. Refer to victories as "spells cast" and problems as "curses". When giving game advice, be specific and tactical — name the cards or moves.
 
-Personality:
-- Friendly, concise, and slightly mystical
-- Refer to tasks as "quests", completions as "spells cast", and problems as "curses"
-- Use plain language, avoid unnecessary jargon
-- Help with game strategy, PvE battles, NFT management, and leaderboard climbing
-
-Game Context:
-- This is Arcane BOW (Battle of Wizards) - an on-chain PvE/PvP battle game
-- Players have soulbound NFTs, fight in gyms, climb APS rankings
-- Built on Chia blockchain with state channels for real-time battles
-- The transparency revolution: all battles and rewards are verifiable on-chain
-
-Keep responses under 200 words and end with a magical emoji (⚡🔮✨🧙‍♂️).`;
+Keep responses under 150 words. End with a relevant magical emoji (⚡🔮✨🧙‍♂️🌸).`;
 
     // Call GitHub Models API with enhanced context
     const aiResponse = await fetch('https://models.inference.ai.azure.com/chat/completions', {
@@ -97,7 +121,7 @@ Keep responses under 200 words and end with a magical emoji (⚡🔮✨🧙‍�
     }
 
     return response.status(200).json({ 
-      response: wizardResponse,
+      reply: wizardResponse,
       timestamp: new Date().toISOString()
     });
 
