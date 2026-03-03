@@ -43,6 +43,8 @@ export interface WalletNft {
   name?:                  string;
   /** NFT launcher ID (nft1… bech32m) */
   launcherId?:            string;
+  /** Also returned as nftId by some Sage versions */
+  nftId?:                 string;
   /** Minter DID (did:chia:…) */
   minterDid?:             string | null;
   /** Current owner DID (did:chia:…) */
@@ -57,16 +59,24 @@ export interface WalletNft {
   address?:               string;
   royaltyAddress?:        string;
   royaltyTenThousandths?: number;
-  /** Data / image URIs */
+  /** Data / image URIs (camelCase — Sage primary) */
   dataUris?:              string[];
+  /** Data / image URIs (snake_case variant some Sage versions return) */
+  data_uris?:             string[];
   dataHash?:              string | null;
-  /** Metadata JSON URIs (fetch these to get traits/attributes) */
+  /** Metadata JSON URIs — camelCase */
   metadataUris?:          string[];
+  /** Metadata JSON URIs — snake_case variant */
+  metadata_uris?:         string[];
   metadataHash?:          string | null;
   licenseUris?:           string[];
   licenseHash?:           string | null;
   editionNumber?:         number | null;
   editionTotal?:          number | null;
+  /** Direct image URL if Sage provides it inline */
+  image?:                 string;
+  imageUri?:              string;
+  image_uri?:             string;
   /** Catch-all for extra fields */
   [key: string]: unknown;
 }
@@ -450,7 +460,10 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     console.log('[aWizard] getNFTs: collection IDs found=', [...new Set(all.map(n => n.collectionId))]);
 
     // Filter to the approved collection client-side
-    const filtered = all.filter(n => n.collectionId === APPROVED_COLLECTION);
+    // Handle both camelCase (collectionId) and snake_case (collection_id) from Sage
+    const filtered = all.filter(n =>
+      (n.collectionId ?? n['collection_id']) === APPROVED_COLLECTION
+    );
     console.log('[aWizard] getNFTs: filtered to collection=', filtered.length, 'NFTs');
 
     return filtered;

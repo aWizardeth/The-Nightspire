@@ -108,8 +108,8 @@ function scaleStat(aps: number, base: number, range: number): number {
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
 export function nftToFighterData(nft: WalletNft, index: number): NFTData {
-  // chia_getNfts uses launcherId as the primary NFT identifier
-  const id = nft.launcherId ?? nft.coinId ?? `nft-${index}`;
+  // chia_getNfts uses launcherId as the primary NFT identifier (some Sage versions use nftId)
+  const id = nft.launcherId ?? nft.nftId ?? nft.coinId ?? `nft-${index}`;
   const displayName = (nft.name as string | undefined) ?? `Wizard #${index + 1}`;
 
   // ── Approved-collection fast path ──────────────────────────────
@@ -119,11 +119,16 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
   if (rawCollectionId && getApprovedCollection(rawCollectionId)) {
     // dataUris[0] is the primary image/data URI in chia_getNfts
     // Also check metadata.image if metadata was pre-fetched
+    // Also handle snake_case variants Sage may return (data_uris, image_uri, image)
     const metaImg = (nft.metadata as Record<string, unknown> | undefined)?.image;
-    const image = resolveImageUri(
+    const rawImg =
       (typeof metaImg === 'string' ? metaImg : undefined) ??
-      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined)
-    );
+      (nft.image as string | undefined) ??
+      (nft.imageUri as string | undefined) ??
+      (nft.image_uri as string | undefined) ??
+      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined) ??
+      (Array.isArray(nft['data_uris']) ? ((nft['data_uris'] as string[])[0]) : undefined);
+    const image = resolveImageUri(rawImg);
 
     const rawAttrsForCollection = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
     const collectionNft: CollectionNftData = {
@@ -194,10 +199,15 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
   // ── Image ───────────────────────────────────────────────────────
   // dataUris[0] is the primary data/image URI from chia_getNfts
   // Also check metadata.image (populated after fetchNftMetadata)
+  // Also handle snake_case variants Sage may return (data_uris, image_uri, image)
   const metaImgFallback = (nft.metadata as Record<string, unknown> | undefined)?.image;
   const rawImage =
     (typeof metaImgFallback === 'string' ? metaImgFallback : undefined) ??
-    (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+    (nft.image as string | undefined) ??
+    (nft.imageUri as string | undefined) ??
+    (nft.image_uri as string | undefined) ??
+    (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined) ??
+    (Array.isArray(nft['data_uris']) ? ((nft['data_uris'] as string[])[0]) : undefined);
   const image = resolveImageUri(rawImage);
 
   const rawAttrs = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
@@ -218,26 +228,32 @@ export function parseWalletNfts(nfts: WalletNft[]): NFTData[] {
 
 /**
  * Fetch metadataUris[0] for each NFT and attach the parsed JSON as nft.metadata.
- * Handles IPFS URIs by proxying through a public gateway.
+ * Routes through /api/img proxy to bypass Discord Activity CSP on IPFS gateways.
  * Safe — failures are silently skipped (the NFT still renders with fallback data).
  */
 export async function fetchNftMetadata(nfts: WalletNft[]): Promise<WalletNft[]> {
-  const resolveUri = (uri: string): string => {
+  // Route through our server-side proxy so CSP never blocks it inside the Discord iframe
+  const proxyUri = (uri: string): string => {
+    let httpsUrl: string;
     if (uri.startsWith('ipfs://')) {
-      return 'https://nftstorage.link/ipfs/' + uri.slice(7);
+      httpsUrl = 'https://nftstorage.link/ipfs/' + uri.slice(7);
+    } else if (uri.startsWith('https://ipfs.io/ipfs/')) {
+      httpsUrl = uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
+    } else if (uri.startsWith('https://')) {
+      httpsUrl = uri;
+    } else {
+      return uri; // relative or unknown scheme — use as-is
     }
-    if (uri.startsWith('https://ipfs.io/ipfs/')) {
-      return uri.replace('https://ipfs.io/ipfs/', 'https://nftstorage.link/ipfs/');
-    }
-    return uri;
+    return '/api/img?url=' + encodeURIComponent(httpsUrl);
   };
 
   const enriched = await Promise.all(
     nfts.map(async (nft) => {
-      const uri = nft.metadataUris?.[0];
+      const uri = (nft.metadataUris as string[] | undefined)?.[0]
+               ?? (nft['metadata_uris'] as string[] | undefined)?.[0];
       if (!uri || typeof uri !== 'string') return nft;
       try {
-        const res = await fetch(resolveUri(uri), { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(proxyUri(uri), { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return nft;
         const meta = await res.json() as Record<string, unknown>;
         return { ...nft, metadata: meta };

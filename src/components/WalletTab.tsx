@@ -100,12 +100,14 @@ export default function WalletTab({ userId }: WalletTabProps) {
     try {
       const raw = await getNFTs();
       console.log('[aWizard Wallet] Raw NFTs:', raw.length, raw);
+      // Log first NFT's top-level keys so we can see exact field names Sage returns
+      if (raw[0]) console.log('[aWizard Wallet] First NFT keys:', Object.keys(raw[0]), 'dataUris:', raw[0].dataUris, 'data_uris:', raw[0]['data_uris'], 'image:', raw[0].image);
       // Enrich each NFT with metadata from metadataUris[0] (image + attributes)
       const enriched = await fetchNftMetadata(raw);
       console.log('[aWizard Wallet] Metadata fetched for', enriched.filter(n => n.metadata).length, '/', enriched.length, 'NFTs');
       const parsed = parseWalletNfts(enriched);
       store.setNfts(parsed);
-      console.log('[aWizard Wallet] Parsed fighters:', parsed.length);
+      console.log('[aWizard Wallet] Parsed fighters:', parsed.length, 'images:', parsed.map(n => n.image));
     } catch (err: unknown) {
       const msg = err instanceof Error
         ? err.message
