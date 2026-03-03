@@ -154,21 +154,39 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
     // ── Discord Activity proxy: route WalletConnect relay through Discord's sandbox ──
     // Discord's CSP blocks all direct external WebSocket/fetch connections.
-    // Strategy 1: patchUrlMappings rewrites the global WebSocket constructor so
-    //             any connection to relay.walletconnect.com is transparently
-    //             routed through the Discord proxy at /walletconnect.
-    // Strategy 2: Explicitly pass the proxied URL as relayUrl to SignClient.init
-    //             so the SDK never tries to reach the external host directly.
-    //
-    // Discord Developer Portal must have the URL Mapping:
+    // The Discord Developer Portal must have the URL Mapping:
     //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
+    //
+    // Additionally, WalletConnect Cloud project must allow origin: *.discordsays.com
+    // (cloud.walletconnect.com → project → Explorer → Allowed Domains)
     let relayUrl: string | undefined;
     if (isIframe) {
-      console.log('[aWizard] Discord iframe detected — patching URL mappings for relay proxy');
+      // patchUrlMappings rewrites the global WebSocket/fetch so any internal
+      // call to relay.walletconnect.com is transparently proxied.
       patchUrlMappings([{ prefix: '/walletconnect', target: 'relay.walletconnect.com' }]);
-      // Build the proxied relay URL: wss://<appId>.discordsays.com/walletconnect
+      // Explicit relayUrl ensures SignClient never tries the direct host.
       relayUrl = `wss://${window.location.hostname}/walletconnect`;
-      console.log('[aWizard] ✅ relayUrl set to:', relayUrl);
+      console.log('[aWizard] Discord iframe — relayUrl:', relayUrl);
+
+      // ── Connectivity probe: raw WebSocket test before SignClient ──
+      // Tells us whether the proxy path + relay accept the connection.
+      const probeWs = new WebSocket(relayUrl.replace('wss://', 'wss://'));
+      const probeTimer = setTimeout(() => { probeWs.close(); console.warn('[aWizard] ⚠️ Relay probe: TIMEOUT (relay may be blocking connection)'); }, 5000);
+      probeWs.addEventListener('open', () => {
+        clearTimeout(probeTimer);
+        console.log('[aWizard] ✅ Relay probe: WebSocket OPEN — proxy routing works');
+        probeWs.close();
+      });
+      probeWs.addEventListener('error', (e) => {
+        clearTimeout(probeTimer);
+        console.error('[aWizard] ❌ Relay probe: WebSocket ERROR — proxy path broken or relay rejecting', e);
+      });
+      probeWs.addEventListener('close', (e) => {
+        clearTimeout(probeTimer);
+        if (e.code !== 1000) {
+          console.error('[aWizard] ❌ Relay probe: closed with code', e.code, e.reason, '— relay may be rejecting origin discordsays.com. Fix: add *.discordsays.com to WalletConnect Cloud allowed domains.');
+        }
+      });
     } else {
       console.log('[aWizard] Not in iframe — using default relay.walletconnect.com');
     }
@@ -296,6 +314,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
     } catch (err: any) {
       console.error('[aWizard] WalletConnect connection failed:', err);
+      console.error('[aWizard] Error details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       setError(`Connection failed: ${err.message || String(err)}`);
       setPairingUri(null);
     } finally {
