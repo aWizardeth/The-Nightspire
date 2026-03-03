@@ -217,15 +217,23 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
           chia: {
             methods: [
               'chip0002_signCoinSpends',
-              'chip0002_sendTransaction', 
+              'chip0002_sendTransaction',
+              'chip0002_getPublicKeys',
+              'chip0002_getAssetBalance',
               'chip0002_getAssetCoins',
               'chip0002_getNFTs',
-              'chip0002_getPublicKeys'
             ],
             chains: CHIA_CHAINS,
             events: []
           }
-        }
+        },
+        optionalNamespaces: {
+          chia: {
+            methods: ['chip0002_signCoinSpends', 'chip0002_sendTransaction'],
+            chains: CHIA_CHAINS,
+            events: [],
+          },
+        },
       });
 
       if (uri) {
