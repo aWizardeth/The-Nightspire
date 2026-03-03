@@ -79,7 +79,7 @@ interface CardSlotProps {
 }
 
 function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: CardSlotProps) {
-  const w = size === 'sm' ? 'w-12 h-16' : 'w-14 h-20';
+  const w = size === 'sm' ? 'w-10 h-14' : 'w-12 h-16';
   const colorCls = card ? (ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral']) : 'bg-zinc-800/60 border-zinc-600';
   const ringCls  = highlight ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-900' : '';
 
@@ -533,7 +533,7 @@ function GameBoard() {
 
       {/* === HAND === */}
       <div className="border-t border-zinc-800 mx-2" />
-      <div className="flex gap-1 overflow-x-auto px-2 py-1.5 min-h-[88px] scrollbar-hide">
+      <div className="flex gap-1 overflow-x-auto px-2 py-1 min-h-[68px] scrollbar-hide">
         {myPlayer.hand.map((card) => {
           const isSelected = selectedHandCard === card.instanceId;
           const colorCls = ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral'];
@@ -541,7 +541,7 @@ function GameBoard() {
             <button
               key={card.instanceId}
               onClick={() => isMyTurn && handleCardClick(card)}
-              className={`flex-shrink-0 w-14 h-20 rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
+              className={`flex-shrink-0 w-12 h-16 rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
             >
               {card.imageUri ? (
                 <img
@@ -570,7 +570,7 @@ function GameBoard() {
 
       {/* === ACTIONS === */}
       <div className="border-t border-zinc-800 mx-2" />
-      <div className="px-2 py-1.5 min-h-[40px] flex items-center justify-center">
+      <div className="px-2 py-1 flex items-center justify-center">
         {phase && (
           <div className="flex flex-col items-center gap-1 w-full">
             <span className="text-[9px] text-purple-400 uppercase tracking-wide">
@@ -585,7 +585,7 @@ function GameBoard() {
       <div className="border-t border-zinc-800 mx-2" />
       <div
         ref={logRef}
-        className="flex-1 overflow-y-auto px-2 py-1 min-h-[48px] max-h-[72px] scrollbar-hide"
+        className="flex-1 overflow-y-auto px-2 py-0.5 max-h-[52px] scrollbar-hide"
       >
         {log.slice(-8).map((entry, i) => (
           <p key={i} className="text-[9px] text-zinc-400 leading-relaxed">{entry}</p>

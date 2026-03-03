@@ -192,21 +192,6 @@ interface FighterSelectorProps {
   nftError: string | null;
 }
 
-function StatBar({ label, value, max = 200, colour }: { label: string; value: number; max?: number; colour: string }) {
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>
-        <span>{label}</span><span style={{ color: 'var(--text-color)' }}>{value}</span>
-      </div>
-      <div className="rounded-full overflow-hidden" style={{ height: 5, background: 'rgba(255,255,255,0.08)' }}>
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${Math.min(100, (value / max) * 100)}%`, background: colour, boxShadow: `0 0 6px ${colour}` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
   const isEmpty = nfts.length === 0;
@@ -266,7 +251,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {nfts.map((nft) => {
               const f = nft.fighter!;
               const isSelected = selected?.name === f.name && selected?.strength === f.strength;
@@ -276,7 +261,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                 <button
                   key={nft.id}
                   onClick={() => onSelect(f)}
-                  className="rounded-xl p-4 text-left transition-all"
+                  className="rounded-lg p-2 text-left transition-all"
                   style={{
                     background: isSelected
                       ? `linear-gradient(135deg, rgba(0,217,255,0.15), rgba(0,217,255,0.05))`
@@ -288,35 +273,35 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                     cursor: 'pointer',
                   }}
                 >
-                  <div className="flex items-start gap-3 mb-3">
+                  <div className="flex items-start gap-2 mb-1.5">
                     {nft.image ? (
                       <img
                         src={nft.image}
                         alt={nft.name}
                         className="rounded-lg object-cover flex-shrink-0"
-                        style={{ width: 52, height: 52, border: `2px solid ${elColour}40` }}
+                        style={{ width: 36, height: 36, border: `2px solid ${elColour}40` }}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
                       <div
-                        className="rounded-lg flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ width: 52, height: 52, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
+                        className="rounded-lg flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ width: 36, height: 36, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
                       >
                         🧙
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold truncate" style={{ color: 'var(--text-color)', fontSize: '0.9rem' }}>{f.name}</p>
-                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                      <p className="font-bold truncate" style={{ color: 'var(--text-color)', fontSize: '0.75rem' }}>{f.name}</p>
+                      <div className="flex gap-1 mt-0.5 flex-wrap">
                         <span
-                          className="px-1.5 py-0.5 rounded text-xs font-bold"
-                          style={{ background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
+                          className="px-1 py-0.5 rounded font-bold"
+                          style={{ fontSize: '0.6rem', background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
                         >
                           {f.rarity}
                         </span>
                         <span
-                          className="px-1.5 py-0.5 rounded text-xs font-bold"
-                          style={{ background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                          className="px-1 py-0.5 rounded font-bold"
+                          style={{ fontSize: '0.6rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
                         >
                           {f.strength}
                         </span>
@@ -327,22 +312,12 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <StatBar label="HP"  value={f.stats.hp}  max={250} colour="#4caf50" />
-                    <StatBar label="ATK" value={f.stats.atk} max={60}  colour="#ff6b35" />
-                    <StatBar label="DEF" value={f.stats.def} max={50}  colour="#2196f3" />
-                    <StatBar label="SPD" value={f.stats.spd} max={40}  colour="#ffd600" />
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                    <span style={{ fontSize: '0.65rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
+                    <span style={{ fontSize: '0.65rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
+                    <span style={{ fontSize: '0.65rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
+                    <span style={{ fontSize: '0.65rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
                   </div>
-
-                  {f.effect && (
-                    <p className="mt-2 text-xs rounded px-2 py-1" style={{ background: 'rgba(240,178,50,0.1)', color: '#f0b232', border: '1px solid rgba(240,178,50,0.25)' }}>
-                      ✨ {f.effect}
-                    </p>
-                  )}
-
-                  <p className="mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                    weak: {f.weakness}
-                  </p>
                 </button>
               );
             })}
