@@ -168,8 +168,14 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     // Discord Developer Portal must have the URL Mapping:
     //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
     if (isIframe) {
-      patchUrlMappings([{ prefix: '/walletconnect', target: 'relay.walletconnect.com' }]);
-      console.log('[aWizard] Discord iframe — patchUrlMappings applied for relay.walletconnect.com → /walletconnect');
+      // WalletConnect 2.17.x uses relay.walletconnect.org
+      // Discord Developer Portal URL Mapping must be:
+      //   PREFIX: /walletconnect   TARGET: relay.walletconnect.org
+      patchUrlMappings([
+        { prefix: '/walletconnect', target: 'relay.walletconnect.org' },
+        { prefix: '/walletconnect', target: 'relay.walletconnect.com' }, // fallback for newer SDK versions
+      ]);
+      console.log('[aWizard] Discord iframe — patchUrlMappings applied for relay.walletconnect.org → /walletconnect');
     } else {
       console.log('[aWizard] Not in iframe — using direct relay.walletconnect.com');
     }

@@ -168,7 +168,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
           {typeof relayProbeStatus === 'string' && relayProbeStatus}
         </div>
         <div style={{ color: '#888', marginTop: '4px', wordBreak: 'break-all' }}>
-          proxy: /walletconnect → relay.walletconnect.com
+          proxy: /walletconnect → relay.walletconnect.org
         </div>
       </div>
 
