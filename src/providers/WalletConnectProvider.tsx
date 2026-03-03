@@ -2,11 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, Re
 import SignClient from '@walletconnect/sign-client';
 import type { SessionTypes } from '@walletconnect/types';
 
-// Temporary: Use env var OR fallback to diagnosed working ID
-// TODO: Remove fallback once env var confirmed working in Vercel
-const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '219bfb172d753461929d17dacb9bec7e';
-// Let SignClient use its default relay URL (WalletConnect rebranded to Reown,
-// the hardcoded wss://relay.walletconnect.org may be deprecated)
+// Project ID from Vercel env — dedicated to The Nightspire
+const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 const CHIA_CHAIN = 'chia:mainnet';
 const CHIA_CHAINS = [CHIA_CHAIN, 'chia:mainnet', 'chia:testnet11'].filter(
   (v, i, a) => a.indexOf(v) === i,
