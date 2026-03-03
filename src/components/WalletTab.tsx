@@ -27,12 +27,15 @@ function getDebugInfo() {
   };
 }
 
+// Toggle to true (or set VITE_DEBUG=true) to show the debug panel
+const SHOW_DEBUG_PANEL = import.meta.env.VITE_DEBUG === 'true';
+
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-  const debugInfo = getDebugInfo();
+  const debugInfo = SHOW_DEBUG_PANEL ? getDebugInfo() : null;
   
   const {
     session,
@@ -155,7 +158,8 @@ export default function WalletTab({ userId }: WalletTabProps) {
         </div>
       </div>
 
-      {/* Debug Panel — collapsible */}
+      {/* Debug Panel — hidden by default, enable with VITE_DEBUG=true */}
+      {SHOW_DEBUG_PANEL && debugInfo && (
       <div className="glow-card">
         <button
           onClick={() => setShowDebug(!showDebug)}
@@ -187,6 +191,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Wallet Connection Status */}
       <div className="glow-card">
@@ -230,16 +235,6 @@ export default function WalletTab({ userId }: WalletTabProps) {
                   <p className="text-sm mt-1" style={{ color: 'rgba(0,217,255,0.7)' }}>
                     Preparing QR code for wallet connection
                   </p>
-                </div>
-
-                {/* Test QR — verifies QR rendering works in Discord iframe */}
-                <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-                  🧪 Test QR (verifying iframe rendering):
-                </p>
-                <div className="flex justify-center">
-                  <div className="bg-white p-4 rounded-lg">
-                    <QRCode value="wc:test-qr-rendering-in-discord-iframe@2" size={200} />
-                  </div>
                 </div>
 
                 {/* Cancel button */}
