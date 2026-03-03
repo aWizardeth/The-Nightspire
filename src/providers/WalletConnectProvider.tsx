@@ -187,7 +187,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         name:        'The Nightspire',
         description: 'Arcane BOW Discord Activity — PvE/PvP Chia battles',
         url:         'https://the-nightspire.vercel.app',
-        icons:       ['https://the-nightspire.vercel.app/wizard-icon.png'],
+        icons:       ['https://the-nightspire.vercel.app/logo.png'],
       },
     }).then((c) => {
       if (!mounted) return;
