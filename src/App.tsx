@@ -5,12 +5,13 @@ import BattleTab from './components/BattleTab';
 import WalletTab from './components/WalletTab';
 import NftViewer from './components/NftViewer';
 import Leaderboard from './components/Leaderboard';
+import ChellyzTab from './components/ChellyzTab';
 import { WalletConnectProvider } from './providers/WalletConnectProvider';
 import { setupDiscordSdk } from './discord';
 import { fetchDiscordUser, type DiscordUser } from './auth';
 import useBowActivityStore from './store/bowActivityStore';
 
-type Page = 'battle' | 'wallet' | 'chat' | 'nft' | 'leaderboard';
+type Page = 'battle' | 'wallet' | 'chat' | 'nft' | 'leaderboard' | 'chellyz';
 
 export default function App() {
   const [page, setPage] = useState<Page>('battle');
@@ -149,6 +150,7 @@ export default function App() {
     chat: <WizardChat user={user} />,
     nft: <NftViewer />,
     leaderboard: <Leaderboard />,
+    chellyz: <ChellyzTab userId={user?.id || ''} userName={user?.global_name ?? user?.username ?? 'Wizard'} />,
   };
 
   return (
