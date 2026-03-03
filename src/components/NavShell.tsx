@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────
 //  NavShell — compact Discord Activity shell
-//  · Slim top bar (36px) — brand left, user centre, ☰ right
-//  · Hamburger = wallet control (green glow when connected)
-//  · Icon-only bottom tab bar (48px)
+//  · Row 1 (36px): brand left, user centre, ☰ wallet right
+//  · Row 2 (40px): tab bar — below Discord's native top bar
+//  · Rest: scrollable page content
 // ─────────────────────────────────────────────────────────────────
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import QRCode from 'react-qr-code';
@@ -299,21 +299,13 @@ export default function NavShell({ activePage, onNavigate, user, children }: Nav
         </div>
       </header>
 
-      {/* ── Page content ───────────────────────────────────── */}
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{ padding: '8px 8px 4px' }}
-      >
-        {children}
-      </main>
-
-      {/* ── Bottom tab bar ──────────────────────────────────── */}
+      {/* ── Tab bar — second row ────────────────────────────── */}
       <nav
         className="flex flex-shrink-0"
         style={{
-          height: 48,
+          height: 40,
           background: 'var(--bg-card)',
-          borderTop: '1px solid rgba(0,217,255,0.25)',
+          borderBottom: '1px solid rgba(0,217,255,0.25)',
         }}
       >
         {tabs.map(({ id, icon, label }) => {
@@ -326,12 +318,12 @@ export default function NavShell({ activePage, onNavigate, user, children }: Nav
               style={{
                 background: 'none',
                 border: 'none',
+                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
                 cursor: 'pointer',
-                borderTop: active ? '2px solid var(--accent)' : '2px solid transparent',
                 transition: 'border-color 0.15s',
               }}
             >
-              <span style={{ fontSize: 16, filter: active ? 'drop-shadow(0 0 5px #00d9ff)' : 'none', lineHeight: 1 }}>
+              <span style={{ fontSize: 15, filter: active ? 'drop-shadow(0 0 5px #00d9ff)' : 'none', lineHeight: 1 }}>
                 {icon}
               </span>
               <span
@@ -348,6 +340,14 @@ export default function NavShell({ activePage, onNavigate, user, children }: Nav
           );
         })}
       </nav>
+
+      {/* ── Page content ───────────────────────────────────── */}
+      <main
+        className="flex-1 overflow-y-auto"
+        style={{ padding: '8px 8px 4px' }}
+      >
+        {children}
+      </main>
     </div>
   );
 }
