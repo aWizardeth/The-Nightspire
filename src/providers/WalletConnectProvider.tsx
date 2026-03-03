@@ -156,12 +156,12 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
     SignClient.init({
       projectId: WC_PROJECT_ID,
-      relayUrl:  'wss://relay.walletconnect.com',
+      // Don't set relayUrl — let the SDK use its built-in default.
+      // The docs use relay.walletconnect.com for HTTP but the SDK
+      // handles WebSocket routing internally.
       metadata:  {
-        name:        'Battle of Wizards - Discord Activity',
-        description: 'aWizard Discord Activity — PvE/PvP battles with soulbound NFTs',
-        // Use Vercel domain (registered in WalletConnect Cloud), not the
-        // Discord iframe origin (*.discordsays.com) which is a proxy
+        name:        'The Nightspire',
+        description: 'Arcane BOW Discord Activity — PvE/PvP Chia battles',
         url:         'https://the-nightspire.vercel.app',
         icons:       ['https://the-nightspire.vercel.app/wizard-icon.png'],
       },
