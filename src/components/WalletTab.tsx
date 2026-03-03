@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
+import type { Fighter, NFTData } from '../store/bowActivityStore';
+import { parseWalletNfts } from '../lib/nftToFighter';
 
 interface WalletTabProps {
   userId: string;
@@ -30,11 +32,34 @@ function getDebugInfo() {
 // Toggle to true (or set VITE_DEBUG=true) to show the debug panel
 const SHOW_DEBUG_PANEL = import.meta.env.VITE_DEBUG === 'true';
 
+// Element → colour mapping for badges
+const ELEMENT_COLOURS: Record<string, string> = {
+  Fire:        '#ff6b35',
+  Water:       '#00b4d8',
+  Nature:      '#4caf50',
+  Electric:    '#ffd600',
+  Shadow:      '#9c27b0',
+  Arcane:      '#00d9ff',
+  Corruption:  '#e53935',
+  Spirit:      '#f8bbd0',
+  Ice:         '#b3e5fc',
+};
+
+const RARITY_COLOURS: Record<string, string> = {
+  Common:    '#9e9e9e',
+  Uncommon:  '#4caf50',
+  Rare:      '#2196f3',
+  Epic:      '#9c27b0',
+  Legendary: '#ff9800',
+};
+
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [isLoadingNfts, setIsLoadingNfts] = useState(false);
+  const [nftError, setNftError] = useState<string | null>(null);
   const debugInfo = SHOW_DEBUG_PANEL ? getDebugInfo() : null;
   
   const {
@@ -91,12 +116,20 @@ export default function WalletTab({ userId }: WalletTabProps) {
   };
 
   const loadNFTs = async () => {
+    setIsLoadingNfts(true);
+    setNftError(null);
     try {
-      const nfts = await getNFTs();
-      console.log('[aWizard Wallet] Loaded NFTs:', nfts.length);
-      // TODO: Process NFTs and extract fighters
-    } catch (err) {
+      const raw = await getNFTs();
+      console.log('[aWizard Wallet] Raw NFTs:', raw.length, raw);
+      const parsed = parseWalletNfts(raw);
+      store.setNfts(parsed);
+      console.log('[aWizard Wallet] Parsed fighters:', parsed.length);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error('[aWizard Wallet] Failed to load NFTs:', err);
+      setNftError(msg);
+    } finally {
+      setIsLoadingNfts(false);
     }
   };
 
@@ -426,21 +459,17 @@ export default function WalletTab({ userId }: WalletTabProps) {
         )}
       </div>
 
-      {/* Fighter Selection (placeholder for now) */}
-      <div className="glow-card">
-        <h2 className="text-lg font-semibold mb-4 glow-text">⚔️ Select Fighter</h2>
-        <div
-          className="rounded-lg p-4 text-center"
-          style={{
-            background: 'rgba(100,100,100,0.1)',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          <p style={{ color: 'var(--text-muted)' }}>
-            📋 Connect wallet and load fighters to see your NFT collection
-          </p>
-        </div>
-      </div>
+      {/* Fighter Selection */}
+      {session && (
+        <FighterSelector
+          nfts={store.wallet.nfts}
+          selected={store.wallet.selectedFighter}
+          onSelect={(f) => store.setSelectedFighter(f)}
+          onLoad={loadNFTs}
+          isLoading={isLoadingNfts}
+          nftError={nftError}
+        />
+      )}
 
       {/* Privacy Notice */}
       <div
@@ -461,6 +490,178 @@ export default function WalletTab({ userId }: WalletTabProps) {
           <li>• State channels provide privacy-preserving battle proofs</li>
         </ul>
       </div>
+    </div>
+  );
+}
+
+// ─── Fighter Selector ─────────────────────────────────────────────────────────
+
+interface FighterSelectorProps {
+  nfts: NFTData[];
+  selected: Fighter | null;
+  onSelect: (f: Fighter) => void;
+  onLoad: () => void;
+  isLoading: boolean;
+  nftError: string | null;
+}
+
+function StatBar({ label, value, max = 200, colour }: { label: string; value: number; max?: number; colour: string }) {
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>
+        <span>{label}</span><span style={{ color: 'var(--text-color)' }}>{value}</span>
+      </div>
+      <div className="rounded-full overflow-hidden" style={{ height: 5, background: 'rgba(255,255,255,0.08)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${Math.min(100, (value / max) * 100)}%`, background: colour, boxShadow: `0 0 6px ${colour}` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
+  const isEmpty = nfts.length === 0;
+
+  return (
+    <div className="glow-card">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold glow-text">⚔️ Select Fighter</h2>
+        <button
+          onClick={onLoad}
+          disabled={isLoading}
+          className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+          style={{
+            background: isLoading ? 'rgba(60,60,60,0.5)' : 'linear-gradient(135deg, #00d9ff, #0099cc)',
+            color: '#fff',
+            border: '1px solid rgba(0,217,255,0.4)',
+            boxShadow: isLoading ? 'none' : '0 0 10px rgba(0,217,255,0.3)',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+          }}
+        >
+          {isLoading ? '⏳ Loading...' : '🔄 Load Fighters'}
+        </button>
+      </div>
+
+      {nftError && (
+        <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: 'rgba(255,60,60,0.1)', border: '1px solid rgba(255,60,60,0.4)', color: '#ff8080' }}>
+          ⚠️ {nftError}
+        </div>
+      )}
+
+      {isEmpty ? (
+        <div className="rounded-lg p-6 text-center" style={{ background: 'rgba(0,0,0,0.2)', border: '1px dashed var(--border-color)' }}>
+          <div className="text-3xl mb-2">🧙</div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+            {isLoading ? 'Fetching your NFT collection…' : 'No fighters found in this wallet'}
+          </p>
+          {!isLoading && (
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Click "Load Fighters" to fetch your Arcane BOW NFTs
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
+          {selected && (
+            <div
+              className="rounded-lg p-3 mb-4 text-sm flex items-center gap-2"
+              style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.3)', color: '#00d9ff' }}
+            >
+              <span>✅</span>
+              <div>
+                <strong style={{ color: 'var(--text-color)' }}>{selected.name}</strong>
+                <span className="ml-2" style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                  {selected.rarity} · {selected.strength}
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {nfts.map((nft) => {
+              const f = nft.fighter!;
+              const isSelected = selected?.name === f.name && selected?.strength === f.strength;
+              const elColour = ELEMENT_COLOURS[f.strength] ?? '#aaa';
+              const rarityColour = RARITY_COLOURS[f.rarity] ?? '#aaa';
+              return (
+                <button
+                  key={nft.id}
+                  onClick={() => onSelect(f)}
+                  className="rounded-xl p-4 text-left transition-all"
+                  style={{
+                    background: isSelected
+                      ? `linear-gradient(135deg, rgba(0,217,255,0.15), rgba(0,217,255,0.05))`
+                      : 'rgba(255,255,255,0.03)',
+                    border: isSelected
+                      ? '2px solid rgba(0,217,255,0.7)'
+                      : '1px solid var(--border-color)',
+                    boxShadow: isSelected ? '0 0 16px rgba(0,217,255,0.25)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    {nft.image ? (
+                      <img
+                        src={nft.image}
+                        alt={nft.name}
+                        className="rounded-lg object-cover flex-shrink-0"
+                        style={{ width: 52, height: 52, border: `2px solid ${elColour}40` }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-lg flex items-center justify-center text-2xl flex-shrink-0"
+                        style={{ width: 52, height: 52, background: `${elColour}20`, border: `2px solid ${elColour}40` }}
+                      >
+                        🧙
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold truncate" style={{ color: 'var(--text-color)', fontSize: '0.9rem' }}>{f.name}</p>
+                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                        <span
+                          className="px-1.5 py-0.5 rounded text-xs font-bold"
+                          style={{ background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
+                        >
+                          {f.rarity}
+                        </span>
+                        <span
+                          className="px-1.5 py-0.5 rounded text-xs font-bold"
+                          style={{ background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                        >
+                          {f.strength}
+                        </span>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span className="text-lg flex-shrink-0">✅</span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <StatBar label="HP"  value={f.stats.hp}  max={250} colour="#4caf50" />
+                    <StatBar label="ATK" value={f.stats.atk} max={60}  colour="#ff6b35" />
+                    <StatBar label="DEF" value={f.stats.def} max={50}  colour="#2196f3" />
+                    <StatBar label="SPD" value={f.stats.spd} max={40}  colour="#ffd600" />
+                  </div>
+
+                  {f.effect && (
+                    <p className="mt-2 text-xs rounded px-2 py-1" style={{ background: 'rgba(240,178,50,0.1)', color: '#f0b232', border: '1px solid rgba(240,178,50,0.25)' }}>
+                      ✨ {f.effect}
+                    </p>
+                  )}
+
+                  <p className="mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                    weak: {f.weakness}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
