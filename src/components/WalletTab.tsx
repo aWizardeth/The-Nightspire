@@ -7,10 +7,32 @@ interface WalletTabProps {
   userId: string;
 }
 
+// Collect iframe environment info for on-screen debug
+function getDebugInfo() {
+  const isIframe = window !== window.parent;
+  const urlParams = new URLSearchParams(window.location.search);
+  let ancestorOrigin = '(blocked)';
+  try { ancestorOrigin = window.location.ancestorOrigins?.[0] || '(none)'; } catch { /* blocked */ }
+  return {
+    isIframe,
+    origin: window.location.origin,
+    hostname: window.location.hostname,
+    protocol: window.location.protocol,
+    referrer: document.referrer || '(empty)',
+    frameId: urlParams.get('frame_id') || '(none)',
+    instanceId: urlParams.get('instance_id') || '(none)',
+    ancestorOrigin,
+    wsAvailable: typeof WebSocket !== 'undefined',
+    envProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'SET' : 'MISSING',
+  };
+}
+
 export default function WalletTab({ userId }: WalletTabProps) {
   const store = useBowActivityStore();
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const debugInfo = getDebugInfo();
   
   const {
     session,
@@ -131,6 +153,39 @@ export default function WalletTab({ userId }: WalletTabProps) {
         >
           <strong>User ID:</strong> {userId}
         </div>
+      </div>
+
+      {/* Debug Panel — collapsible */}
+      <div className="glow-card">
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="w-full text-left text-sm font-semibold flex justify-between items-center"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span>🐛 Debug Info</span>
+          <span>{showDebug ? '▼' : '▶'}</span>
+        </button>
+        {showDebug && (
+          <div
+            className="mt-3 text-xs font-mono space-y-1 rounded p-3"
+            style={{ background: 'rgba(0,0,0,0.4)', color: '#aaa' }}
+          >
+            <div><span style={{ color: '#00d9ff' }}>isIframe:</span> {String(debugInfo.isIframe)}</div>
+            <div><span style={{ color: '#00d9ff' }}>origin:</span> {debugInfo.origin}</div>
+            <div><span style={{ color: '#00d9ff' }}>hostname:</span> {debugInfo.hostname}</div>
+            <div><span style={{ color: '#00d9ff' }}>protocol:</span> {debugInfo.protocol}</div>
+            <div><span style={{ color: '#00d9ff' }}>referrer:</span> {debugInfo.referrer}</div>
+            <div><span style={{ color: '#00d9ff' }}>frame_id:</span> {debugInfo.frameId}</div>
+            <div><span style={{ color: '#00d9ff' }}>instance_id:</span> {debugInfo.instanceId}</div>
+            <div><span style={{ color: '#00d9ff' }}>ancestorOrigin:</span> {debugInfo.ancestorOrigin}</div>
+            <div><span style={{ color: '#00d9ff' }}>WebSocket:</span> {String(debugInfo.wsAvailable)}</div>
+            <div><span style={{ color: '#00d9ff' }}>ENV Project ID:</span> {debugInfo.envProjectId}</div>
+            <div><span style={{ color: '#00d9ff' }}>clientReady:</span> {String(clientReady)}</div>
+            <div><span style={{ color: '#00d9ff' }}>isConnecting:</span> {String(isConnecting)}</div>
+            <div><span style={{ color: '#00d9ff' }}>session:</span> {session ? 'active' : 'none'}</div>
+            <div><span style={{ color: '#00d9ff' }}>error:</span> {error || '(none)'}</div>
+          </div>
+        )}
       </div>
 
       {/* Wallet Connection Status */}
