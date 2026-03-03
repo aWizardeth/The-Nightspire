@@ -1,7 +1,10 @@
 /**
  * nftToFighter.ts
- * Maps a raw WalletNft (chip0002_getNFTs response) → NFTData + Fighter
+ * Maps a raw WalletNft (chia_getNfts response) → NFTData + Fighter
  * for use in the Battle tab fighter selector.
+ *
+ * NOTE: chia_getNfts does NOT return trait attributes inline.
+ * Traits must be fetched from metadataUris[0] separately (see TODO: metadata fetch quest).
  *
  * BOW NFT attributes schema (from arcane-battle-protocol/nft/nft_schema.ts):
  *   tier, wins, losses, arcane_power_score, strength, weakness, effect
@@ -50,16 +53,22 @@ const TIER_RARITY: Record<string, Rarity> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+type AttrArray = { trait_type: string; value: string | number }[];
+
 function attr(nft: WalletNft, key: string): string | number | undefined {
-  if (nft.attributes) {
-    const hit = nft.attributes.find(
+  // chia_getNfts does NOT return attributes inline.
+  // This function is kept for future use when metadata is fetched from metadataUris.
+  const rawAttrs = nft.attributes;
+  if (Array.isArray(rawAttrs)) {
+    const hit = (rawAttrs as AttrArray).find(
       (a) => a.trait_type?.toLowerCase() === key.toLowerCase(),
     );
     if (hit) return hit.value;
   }
-  // Also check top-level metadata blob (some wallets nest attributes there)
-  if (nft.metadata && typeof nft.metadata === 'object') {
-    const meta = nft.metadata as Record<string, unknown>;
+  // Also check top-level metadata blob (populated after fetching metadataUris)
+  const rawMeta = nft.metadata;
+  if (rawMeta && typeof rawMeta === 'object') {
+    const meta = rawMeta as Record<string, unknown>;
     if (Array.isArray(meta.attributes)) {
       const hit = (meta.attributes as { trait_type: string; value: unknown }[]).find(
         (a) => a.trait_type?.toLowerCase() === key.toLowerCase(),
@@ -98,27 +107,24 @@ function scaleStat(aps: number, base: number, range: number): number {
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
 export function nftToFighterData(nft: WalletNft, index: number): NFTData {
-  const id = nft.nftId ?? nft.launcherId ?? nft.encodedId ?? `nft-${index}`;
-  const displayName =
-    attrStr(nft, 'name') ?? (nft.name as string | undefined) ?? `Wizard #${index + 1}`;
+  // chia_getNfts uses launcherId as the primary NFT identifier
+  const id = nft.launcherId ?? nft.coinId ?? `nft-${index}`;
+  const displayName = (nft.name as string | undefined) ?? `Wizard #${index + 1}`;
 
   // ── Approved-collection fast path ──────────────────────────────
-  // Check for a collectionId field on the NFT (some wallets expose it)
-  const rawCollectionId: string | undefined =
-    (nft as unknown as { collectionId?: string }).collectionId ??
-    attrStr(nft, 'collectionId') ?? attrStr(nft, 'collection_id');
+  // collectionId is a first-class field in chia_getNfts response
+  const rawCollectionId: string | undefined = nft.collectionId ?? undefined;
 
   if (rawCollectionId && getApprovedCollection(rawCollectionId)) {
-    const image =
-      (nft.thumbnailUri as string | undefined) ??
-      (nft.imageUri    as string | undefined)  ??
-      (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+    // dataUris[0] is the primary image/data URI in chia_getNfts
+    const image = Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined;
 
+    const rawAttrsForCollection = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
     const collectionNft: CollectionNftData = {
       nftId:        id,
       name:         displayName,
       collectionId: rawCollectionId,
-      traits:       (nft.attributes ?? []).map(a => ({
+      traits:       rawAttrsForCollection.map(a => ({
         trait_type: a.trait_type ?? '',
         value:      a.value ?? '',
       })),
@@ -180,17 +186,16 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
   };
 
   // ── Image ───────────────────────────────────────────────────────
-  const image =
-    (nft.thumbnailUri as string | undefined) ??
-    (nft.imageUri    as string | undefined)  ??
-    (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined);
+  // dataUris[0] is the primary data/image URI from chia_getNfts
+  const image = Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined;
 
+  const rawAttrs = Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : [];
   const attributes: NFTData['attributes'] = [
     { trait_type: 'tier',   value: tierRaw ?? rarity },
     { trait_type: 'wins',   value: wins },
     { trait_type: 'losses', value: losses },
     { trait_type: 'aps',    value: aps },
-    ...(nft.attributes ?? []),
+    ...rawAttrs,
   ];
 
   return { id, tokenId: id, name: displayName, image, attributes, fighter };

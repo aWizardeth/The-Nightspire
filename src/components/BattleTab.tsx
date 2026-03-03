@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import QRCode from 'react-qr-code';
 import useBowActivityStore from '../store/bowActivityStore';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
-import { MOVES, getAvailableMoves } from '../lib/battleEngine';
-import type { MoveKind, BattleState } from '../store/bowActivityStore';
+import { MOVES, getAvailableMoves, createBattle, PrivacyBattleEngine } from '../lib/battleEngine';
+import type { Fighter, MoveKind, BattleState } from '../store/bowActivityStore';
 
 interface BattleTabProps {
   userId: string;
@@ -17,6 +17,31 @@ export default function BattleTab({ userId }: BattleTabProps) {
   const [battleId, setBattleId] = useState<string>('');
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
+  const engineRef = useRef<PrivacyBattleEngine | null>(null);
+
+  /** Build a gym-boss fighter that counters the player's element */
+  const makeGymBoss = (player: Fighter): Fighter => {
+    const counters: Record<string, Fighter['strength']> = {
+      Fire: 'Water', Water: 'Nature', Nature: 'Fire',
+      Electric: 'Shadow', Shadow: 'Arcane', Arcane: 'Corruption',
+      Corruption: 'Spirit', Spirit: 'Shadow', Ice: 'Fire',
+      Exile: 'Fire', None: 'Fire',
+    };
+    const bossStrength = counters[player.strength] ?? 'Fire';
+    return {
+      source: 'user',
+      name: `${bossStrength} Archon`,
+      stats: {
+        hp:  Math.round(player.stats.hp  * 1.2),
+        atk: Math.round(player.stats.atk * 1.15),
+        def: Math.round(player.stats.def * 1.1),
+        spd: player.stats.spd,
+      },
+      strength: bossStrength,
+      weakness: player.strength as Fighter['strength'],
+      rarity:   player.rarity,
+    };
+  };
 
   useEffect(() => {
     if (pairingUri) setShowQr(true);
@@ -53,107 +78,62 @@ export default function BattleTab({ userId }: BattleTabProps) {
     (currentBattle.player2Id === userId && currentBattle.currentTurn === 'player2')
   );
 
-  const handleCreateBattle = async () => {
+  const handleCreateBattle = () => {
     if (!selectedFighter || !isConnected) {
       store.addBattleLog('❌ Connect wallet and select a fighter first');
       return;
     }
-    try {
-      const response = await fetch('/api/battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'CREATE_BATTLE', userId, fighter: selectedFighter }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        store.setBattle(result.battle);
-        setBattleId(result.battle.battleId);
-        store.setIsInBattle(true);
-        store.addBattleLog(`🏟️ Battle created! Share ID: ${result.battle.battleId}`);
-      } else {
-        store.addBattleLog(`❌ ${result.error}`);
-      }
-    } catch {
-      store.addBattleLog('❌ Network error creating battle');
-    }
+    const boss = makeGymBoss(selectedFighter);
+    const battle = createBattle(userId, 'gym-ai', selectedFighter, boss);
+    engineRef.current = new PrivacyBattleEngine(battle);
+    store.setBattle(battle);
+    store.setIsInBattle(true);
+    setBattleId(battle.battleId ?? '');
+    store.addBattleLog(`🏟️ Gym Battle started!`);
+    store.addBattleLog(`⚔️ Your fighter: ${selectedFighter.name} (${selectedFighter.strength})`);
+    store.addBattleLog(`🔥 Opponent: ${boss.name} (${boss.strength}) — counters your element!`);
   };
 
-  const handleJoinBattle = async () => {
-    if (!selectedFighter || !isConnected || !battleId.trim()) {
-      store.addBattleLog('❌ Connect wallet, select fighter, and enter battle ID');
-      return;
-    }
-    try {
-      const response = await fetch('/api/battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'JOIN_BATTLE', battleId: battleId.trim(), userId, fighter: selectedFighter }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        store.setBattle(result.battle);
-        store.setIsInBattle(true);
-        store.addBattleLog('⚔️ Joined battle! Prepare for combat!');
-      } else {
-        store.addBattleLog(`❌ ${result.error}`);
-      }
-    } catch {
-      store.addBattleLog('❌ Network error joining battle');
-    }
+  const handleJoinBattle = () => {
+    store.addBattleLog('🔜 PvP battles coming soon — use “Create Battle” to fight a gym boss now!');
   };
 
   const handleSubmitMove = async () => {
-    if (!selectedMove || !currentBattle || isSubmittingMove) return;
+    if (!selectedMove || !currentBattle || isSubmittingMove || !engineRef.current) return;
     setIsSubmittingMove(true);
     try {
-      const response = await fetch('/api/battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'SUBMIT_MOVE', battleId: currentBattle.battleId, userId, move: selectedMove }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        if (result.waiting) {
-          store.addBattleLog(`✨ Move submitted: ${MOVES[selectedMove].name}`);
-          store.addBattleLog('⏳ Waiting for opponent...');
-        } else if (result.roundResult) {
-          const { battleLog, player1Damage, player2Damage } = result.roundResult;
-          battleLog.forEach((log: any) => store.addBattleLog(log));
-          if (player1Damage > 0) store.addBattleLog(`💥 Player 1 took ${player1Damage} damage!`);
-          if (player2Damage > 0) store.addBattleLog(`💥 Player 2 took ${player2Damage} damage!`);
-        }
-        if (result.battle) {
-          store.setBattle(result.battle);
-          if (result.battle.status === 'finished') {
-            const winner = result.battle.winner;
-            const isWinner = (winner === 'player1' && currentBattle.player1Id === userId) ||
-                            (winner === 'player2' && currentBattle.player2Id === userId);
-            if (winner === 'draw') store.addBattleLog('⚖️ Battle ended in a draw!');
-            else if (isWinner) store.addBattleLog('🏆 Victory! You won the battle!');
-            else store.addBattleLog('💀 Defeat... Better luck next time!');
-            store.setIsInBattle(false);
-          }
-        }
-        setSelectedMove(null);
-      } else {
-        store.addBattleLog(`❌ ${result.error}`);
+      // AI picks a random move from available options
+      const aiMoves = getAvailableMoves(currentBattle.player2Fighter!);
+      const aiMove  = aiMoves[Math.floor(Math.random() * aiMoves.length)] ?? 'SCRATCH';
+
+      store.addBattleLog(`⚡ You chose: ${MOVES[selectedMove].name}`);
+      store.addBattleLog(`🤖 Opponent chose: ${MOVES[aiMove].name}`);
+
+      const result       = engineRef.current.executeRound(selectedMove, aiMove);
+      const updatedBattle = engineRef.current.applyRound(result.player1Damage, result.player2Damage);
+
+      result.battleLog.forEach((log: string) => store.addBattleLog(log));
+      if (result.player1Damage > 0) store.addBattleLog(`💥 You took ${result.player1Damage} damage!`);
+      if (result.player2Damage > 0) store.addBattleLog(`💥 Opponent took ${result.player2Damage} damage!`);
+
+      store.setBattle(updatedBattle);
+
+      if (updatedBattle.status === 'finished') {
+        const winner = updatedBattle.winner;
+        if (winner === 'draw')     store.addBattleLog('⚖️ Battle ended in a draw!');
+        else if (winner === 'player1') store.addBattleLog('🏆 Victory! You defeated the Archon!');
+        else                           store.addBattleLog('💀 Defeat… The Archon prevails. Train harder!');
+        store.setIsInBattle(false);
+        engineRef.current = null;
       }
-    } catch {
-      store.addBattleLog('❌ Network error submitting move');
+      setSelectedMove(null);
     } finally {
       setIsSubmittingMove(false);
     }
   };
 
-  const handleLeaveBattle = async () => {
-    if (!currentBattle) return;
-    try {
-      await fetch('/api/battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'LEAVE_BATTLE', battleId: currentBattle.battleId, userId }),
-      });
-    } catch { /* ignore */ }
+  const handleLeaveBattle = () => {
+    engineRef.current = null;
     store.resetBattle();
     store.setIsInBattle(false);
     store.addBattleLog('🚪 Left battle');

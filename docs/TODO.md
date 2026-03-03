@@ -25,6 +25,15 @@
 - [ ] Deep-link from Activity → bow-app for wallet-heavy flows
 - [ ] Show live HP bars, move log, round counter during battle
 - [ ] Battle result screen (APS delta, winner, rematch button)
+- [ ] PvP: replace local engine with PeerJS P2P round loop
+
+### 🔮 NFT Deep Scan (trait loading)
+- [ ] `chia_getNfts` returns NFT shells only — traits are NOT inline
+- [ ] After loading NFTs, fetch `metadataUris[0]` for each NFT to get: `tier`, `wins`, `losses`, `arcane_power_score`, `strength`, `weakness`, `effect`
+- [ ] Cache fetched metadata in session storage to avoid re-fetch on every load
+- [ ] Handle CORS / IPFS redirect for external metadata URIs
+- [ ] Once metadata is loaded, re-parse fighters with `nftToFighterData` for accurate stats
+- [ ] Show loading skeleton per NFT card as metadata streams in
 
 ### 📡 Tracker / PvP Matchmaking
 - [ ] Room list UI — browse open `TrackerClient` rooms

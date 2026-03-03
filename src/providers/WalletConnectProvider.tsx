@@ -34,25 +34,39 @@ export interface SpendBundle {
 }
 
 /** Shape of an NFT record returned by chip0002_getNFTs / chip0002_getAssetCoins(type:'nft') */
+/**
+ * WalletNft matches the `chia_getNfts` WalletConnect response shape from Sage.
+ * Note: attributes/traits are NOT returned inline — fetch metadataUris[0] separately.
+ */
 export interface WalletNft {
-  /** NFT coin ID / launcher ID (hex) */
-  nftId?:       string;
-  launcherId?:  string;
-  encodedId?:   string;
-  /** bech32m NFT address (nft1…) */
-  address?:     string;
+  /** Display name (from on-chain metadata) */
+  name?:                  string;
+  /** NFT launcher ID (nft1… bech32m) */
+  launcherId?:            string;
+  /** Minter DID (did:chia:…) */
+  minterDid?:             string | null;
+  /** Current owner DID (did:chia:…) */
+  ownerDid?:              string | null;
   /** On-chain collection ID (col1…) */
-  collectionId?: string;
-  /** Display name */
-  name?:        string;
-  /** Metadata attributes / traits */
-  attributes?:  { trait_type: string; value: string | number }[];
-  /** Image / preview URI */
-  imageUri?:    string;
-  thumbnailUri?: string;
-  dataUris?:    string[];
-  /** Raw metadata JSON (some wallets nest it here) */
-  metadata?:    Record<string, unknown>;
+  collectionId?:          string | null;
+  collectionName?:        string | null;
+  createdHeight?:         number;
+  /** Coin ID (hex) */
+  coinId?:                string;
+  /** bech32m NFT address (nft1…) */
+  address?:               string;
+  royaltyAddress?:        string;
+  royaltyTenThousandths?: number;
+  /** Data / image URIs */
+  dataUris?:              string[];
+  dataHash?:              string | null;
+  /** Metadata JSON URIs (fetch these to get traits/attributes) */
+  metadataUris?:          string[];
+  metadataHash?:          string | null;
+  licenseUris?:           string[];
+  licenseHash?:           string | null;
+  editionNumber?:         number | null;
+  editionTotal?:          number | null;
   /** Catch-all for extra fields */
   [key: string]: unknown;
 }
@@ -399,16 +413,31 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   const getNFTs = useCallback(async (): Promise<WalletNft[]> => {
     const client = clientRef.current;
     if (!client || !session) throw new Error('No active WalletConnect session');
-    
     const chain = session.namespaces?.chia?.chains?.[0] ?? CHIA_CHAIN;
-    return await client.request<WalletNft[]>({
-      topic: session.topic,
-      chainId: chain,
-      request: {
-        method: 'chip0002_getNFTs',
-        params: {}
-      }
-    });
+
+    // Sage uses chia_getNfts (high-level WalletConnect method).
+    // It supports collectionId filter natively and paginates with limit/offset.
+    // Response is always { nfts: [...] } — traits are NOT inline (see metadataUris).
+    const BATCH     = 50;
+    const MAX_NFTS  = 200;
+    const collectionId = 'col198luy7d64a8zksmseysz9a7mn8dnk590huspz5q8p8p3pglqsn4s6fjpun';
+    const all: WalletNft[] = [];
+
+    for (let offset = 0; offset < MAX_NFTS; offset += BATCH) {
+      const res = await client.request<{ nfts: WalletNft[] }>({
+        topic: session.topic,
+        chainId: chain,
+        request: {
+          method: 'chia_getNfts',
+          params: { limit: BATCH, offset, collectionId },
+        },
+      });
+      const batch = res?.nfts ?? [];
+      all.push(...batch);
+      if (batch.length < BATCH) break; // last page reached
+    }
+
+    return all;
   }, [session]);
 
   return (

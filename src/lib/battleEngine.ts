@@ -212,6 +212,39 @@ export class PrivacyBattleEngine {
     return null;
   }
 
+  /** Returns a snapshot of the current battle state */
+  getBattleState(): BattleState {
+    return { ...this.battleState };
+  }
+
+  /**
+   * Applies damage from executeRound, advances the round counter,
+   * and checks for battle end. Returns the updated BattleState.
+   * Call this immediately after executeRound().
+   */
+  applyRound(player1Damage: number, player2Damage: number): BattleState {
+    const newP1Hp = Math.max(0, this.battleState.player1Hp - player1Damage);
+    const newP2Hp = Math.max(0, this.battleState.player2Hp - player2Damage);
+
+    this.battleState = {
+      ...this.battleState,
+      player1Hp:   newP1Hp,
+      player2Hp:   newP2Hp,
+      roundNumber: this.battleState.roundNumber + 1,
+    };
+
+    const winner = this.checkBattleEnd(newP1Hp, newP2Hp);
+    if (winner !== null) {
+      this.battleState = {
+        ...this.battleState,
+        status: 'finished',
+        winner,
+      };
+    }
+
+    return { ...this.battleState };
+  }
+
   // Calculate APS (Arcane Power Score) change after battle
   calculateAPSChange(
     winner: 'player1' | 'player2' | 'draw' | null,

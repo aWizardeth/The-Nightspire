@@ -127,7 +127,11 @@ export default function WalletTab({ userId }: WalletTabProps) {
       store.setNfts(parsed);
       console.log('[aWizard Wallet] Parsed fighters:', parsed.length);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = err instanceof Error
+        ? err.message
+        : (typeof err === 'object' && err !== null
+            ? JSON.stringify(err)
+            : String(err));
       console.error('[aWizard Wallet] Failed to load NFTs:', err);
       setNftError(msg);
     } finally {
