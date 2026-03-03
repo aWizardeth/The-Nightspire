@@ -25,7 +25,9 @@
 import type {
   StateChannel, ChannelKeys, CoinInfo, SpendBundle, CoinSpend, BondType,
 } from './stateChannel';
-import * as GreenWeb from 'greenwebjs';
+// NOTE: greenwebjs is loaded lazily inside buildStandardSolution() to avoid
+// crashing the module on load — @chiamine/bls-signatures uses Node.js
+// built-ins (fs, path) that trigger errors in the Discord iframe environment.
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -182,18 +184,21 @@ function clvmAtomPrefix(len: number): string {
 }
 
 /**
- * Build a standard p2 coin solution using greenwebjs:
+ * Build a standard p2 coin solution using greenwebjs (loaded lazily):
  *  - REMARK condition with `memo`
  *  - CREATE_COIN back to sender for `totalAmount` (net-zero spend)
  * Returns 0x-prefixed CLVM hex.
  *
  * Mirrors bow-app/app/channel/page.tsx `buildStandardSolution`.
  */
-function buildStandardSolution(
+async function buildStandardSolution(
   senderPuzzleHashHex: string,
   totalAmount: number,
   memo: string,
-): string {
+): Promise<string> {
+  // Lazy import so greenwebjs never runs at module-init time in the browser
+  const GreenWeb = await import('greenwebjs');
+
   const ph = senderPuzzleHashHex.replace(/^0x/, '');
 
   // Encode memo as hex (truncate to 63 chars to stay within CLVM atom limits)
@@ -240,7 +245,7 @@ export async function requestFundingSignature(
   const memo      = `BoW open ${channel.bondType} ${addrTag}`;
 
   // Build real p2 standard solution: REMARK + CREATE_COIN back to self
-  const solution = buildStandardSolution(
+  const solution = await buildStandardSolution(
     realCoin.coin.puzzle_hash,
     Number(realCoin.coin.amount),
     memo,
