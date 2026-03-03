@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import SignClient from '@walletconnect/sign-client';
 import type { SessionTypes } from '@walletconnect/types';
+import { patchUrlMappings } from '@discord/embedded-app-sdk';
 
 // Project ID from Vercel env — dedicated to The Nightspire
 const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
@@ -149,6 +150,17 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       console.error('[aWizard]', msg);
       setError(msg);
       return;
+    }
+
+    // ── Discord Activity proxy: rewrite WalletConnect relay WebSocket ──
+    // Discord's CSP sandbox blocks direct external WebSocket connections.
+    // We map wss://relay.walletconnect.com → /{appId}.discordsays.com/walletconnect
+    // The Discord Developer Portal must have the URL Mapping:
+    //   PREFIX: /walletconnect   TARGET: relay.walletconnect.com
+    if (isIframe) {
+      console.log('[aWizard] Patching URL mappings for Discord proxy (relay.walletconnect.com → /walletconnect)');
+      patchUrlMappings([{ prefix: '/walletconnect', target: 'relay.walletconnect.com' }]);
+      console.log('[aWizard] ✅ URL mappings patched');
     }
 
     SignClient.init({
