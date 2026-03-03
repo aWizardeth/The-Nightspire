@@ -226,14 +226,14 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
       // ── Hook into relay transport errors for on-screen diagnosis ──
       try {
-        // @ts-expect-error — internal relayer event emitter
-        c.core?.relayer?.on('relayer_error', (e: unknown) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = c.core as any;
+        core?.relayer?.on?.('relayer_error', (e: unknown) => {
           const msg = `relay error: ${JSON.stringify(e)}`;
           console.error('[aWizard] ❌ Relayer error:', e);
           setRelayProbeStatus(msg);
         });
-        // @ts-expect-error — core transport events
-        c.core?.relayer?.provider?.connection?.on('error', (e: unknown) => {
+        core?.relayer?.provider?.connection?.on?.('error', (e: unknown) => {
           const msg = `transport error: ${JSON.stringify(e)}`;
           console.error('[aWizard] ❌ Relay transport error:', e);
           setRelayProbeStatus(msg);
