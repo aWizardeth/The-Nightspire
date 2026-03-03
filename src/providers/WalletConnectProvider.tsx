@@ -123,6 +123,26 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // ── Debug: Discord iframe environment ──
+    const isIframe = window !== window.parent;
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log('[aWizard] ═══ Environment Debug ═══');
+    console.log('[aWizard] Platform: Discord Activity (iframe)');
+    console.log('[aWizard] isIframe:', isIframe);
+    console.log('[aWizard] location.origin:', window.location.origin);
+    console.log('[aWizard] location.hostname:', window.location.hostname);
+    console.log('[aWizard] location.protocol:', window.location.protocol);
+    console.log('[aWizard] location.href:', window.location.href);
+    console.log('[aWizard] referrer:', document.referrer || '(empty)');
+    console.log('[aWizard] frame_id:', urlParams.get('frame_id') || '(none)');
+    console.log('[aWizard] instance_id:', urlParams.get('instance_id') || '(none)');
+    try {
+      console.log('[aWizard] ancestorOrigins:', window.location.ancestorOrigins?.[0] || '(none/blocked)');
+    } catch { console.log('[aWizard] ancestorOrigins: (access denied)'); }
+    console.log('[aWizard] userAgent:', navigator.userAgent);
+    console.log('[aWizard] WebSocket available:', typeof WebSocket !== 'undefined');
+    console.log('[aWizard] ═══════════════════════');
+
     console.log('[aWizard] Initializing WalletConnect SignClient...');
     console.log('[aWizard] Env var VITE_WALLETCONNECT_PROJECT_ID:', import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'SET' : 'MISSING');
     console.log('[aWizard] Using Project ID:', WC_PROJECT_ID ? `${WC_PROJECT_ID.slice(0, 8)}... (${import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? 'from env' : 'fallback'})` : 'MISSING');
