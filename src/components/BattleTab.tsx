@@ -356,12 +356,41 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
   );
 }
 
+// ─── Element colour map (shared with WalletTab) ──────────────────────────────
+const EL_COLOURS: Record<string, string> = {
+  Fire: '#f97316', Water: '#3b82f6', Nature: '#22c55e',
+  Electric: '#eab308', Shadow: '#a855f7', Ice: '#67e8f9',
+  Arcane: '#00d9ff', Corruption: '#dc2626', Spirit: '#f9a8d4',
+};
+
+// ─── Inline fighter portrait (image or emoji fallback) ───────────────────────
+function FighterPortrait({ src, size = 80 }: { src?: string; size?: number }) {
+  const [err, setErr] = useState(false);
+  if (!src || err) {
+    return (
+      <div className="flex items-center justify-center rounded-lg text-4xl flex-shrink-0"
+        style={{ width: size, height: size, background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)' }}>
+        🧙
+      </div>
+    );
+  }
+  return (
+    <img src={src} alt="fighter" onError={() => setErr(true)}
+      className="rounded-lg object-contain flex-shrink-0"
+      style={{ width: size, height: size, background: 'rgba(0,0,0,0.3)' }} />
+  );
+}
+
 // ─── AI Practice Panel ────────────────────────────────────────────────────────
 
 function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStartBattle: () => void }) {
+  const elColour = EL_COLOURS[fighter.strength] ?? '#aaa';
+  const moves    = getAvailableMoves(fighter).filter(Boolean) as NonNullable<MoveKind>[];
   return (
-    <div className="rounded-xl p-3 space-y-2"
+    <div className="rounded-xl p-3 space-y-3"
       style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)' }}>
+
+      {/* Header */}
       <div className="flex items-center gap-2">
         <span className="text-base">🤖</span>
         <h3 className="text-sm font-bold" style={{ color: 'var(--text-color)' }}>AI Practice</h3>
@@ -370,21 +399,41 @@ function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStart
           NO STAKE
         </span>
       </div>
-      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-        Fight an AI gym boss that counters your element. No wallet required — pure practice.
-      </p>
-      <div className="flex items-center gap-2 rounded-lg p-2"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
-        <span>🧙</span>
-        <div className="min-w-0">
-          <p className="text-xs font-bold truncate" style={{ color: 'var(--text-color)' }}>{fighter.name}</p>
-          <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-            {fighter.rarity} · {fighter.strength} · HP {fighter.stats.hp}
-          </p>
+
+      {/* Fighter card */}
+      <div className="flex gap-3 rounded-lg p-2"
+        style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${elColour}30` }}>
+        <FighterPortrait src={fighter.imageUri} size={88} />
+        <div className="flex flex-col gap-1 min-w-0">
+          <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text-color)' }}>{fighter.name}</p>
+          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold self-start"
+            style={{ background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}>
+            {fighter.strength}
+          </span>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1" style={{ fontSize: '0.75rem' }}>
+            <span style={{ color: '#4caf50' }}>❤ {fighter.stats.hp}</span>
+            <span style={{ color: '#ff6b35' }}>⚔ {fighter.stats.atk}</span>
+            <span style={{ color: '#2196f3' }}>🛡 {fighter.stats.def}</span>
+            <span style={{ color: '#ffd600' }}>💨 {fighter.stats.spd}</span>
+          </div>
         </div>
       </div>
+
+      {/* Available moves derived from fighter metadata */}
+      <div>
+        <p className="text-[10px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>⚡ Available Moves</p>
+        <div className="flex flex-wrap gap-1">
+          {moves.map((m) => (
+            <span key={m} className="px-2 py-0.5 rounded text-[10px] font-bold"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-color)' }}>
+              {MOVES[m].name}
+            </span>
+          ))}
+        </div>
+      </div>
+
       <button onClick={onStartBattle}
-        className="w-full py-2 rounded-lg text-xs font-bold transition-all"
+        className="w-full py-2 rounded-lg text-xs font-bold"
         style={{ background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.5)', color: '#fbbf24' }}>
         ⚔️ Fight AI Boss
       </button>
@@ -693,8 +742,13 @@ function BattleInterface({
       {/* HP bars */}
       <div className="grid grid-cols-2 gap-2">
         <div className="glow-card p-2" style={{ border: '2px solid var(--accent)' }}>
-          <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
-          <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{myFighter?.rarity} · {myFighter?.strength}</p>
+          <div className="flex gap-2 items-center mb-1">
+            <FighterPortrait src={myFighter?.imageUri} size={40} />
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{myFighter?.rarity} · {myFighter?.strength}</p>
+            </div>
+          </div>
           <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(74,222,128,0.2)' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${Math.max(0, (myHp / (myFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
@@ -704,8 +758,13 @@ function BattleInterface({
           </span>
         </div>
         <div className="glow-card p-2" style={{ border: '2px solid var(--danger)' }}>
-          <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'Opponent'}</p>
-          <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{opponentFighter?.rarity} · {opponentFighter?.strength}</p>
+          <div className="flex gap-2 items-center mb-1">
+            <FighterPortrait src={opponentFighter?.imageUri} size={40} />
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'Opponent'}</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{opponentFighter?.rarity} · {opponentFighter?.strength}</p>
+            </div>
+          </div>
           <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(242,63,66,0.2)' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${Math.max(0, (opponentHp / (opponentFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />

@@ -160,7 +160,7 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
         name:    displayName,
         image,
         attributes: collectionNft.traits,
-        fighter:    fighter as unknown as Fighter,
+        fighter:    { ...(fighter as unknown as Fighter), imageUri: image },
       };
     }
   }
@@ -219,6 +219,7 @@ export function nftToFighterData(nft: WalletNft, index: number): NFTData {
     (Array.isArray(nft.dataUris) ? (nft.dataUris[0] as string) : undefined) ??
     (Array.isArray(nft['data_uris']) ? ((nft['data_uris'] as string[])[0]) : undefined);
   const image = resolveImageUri(rawImage);
+  if (image) fighter.imageUri = image;
 
   const rawAttrs: AttrArray = [
     ...(Array.isArray(nft.attributes) ? (nft.attributes as AttrArray) : []),
