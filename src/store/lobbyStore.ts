@@ -117,7 +117,20 @@ export const useLobbyStore = create<LobbyStore>()(
             });
           }
         } catch (err) {
-          set({ step: 'error', errorMsg: err instanceof Error ? err.message : String(err) });
+          // WalletConnect rejection arrives as a plain object { code, message },
+          // not an Error instance — extract .message so we don't get [object Object]
+          let msg: string;
+          if (err instanceof Error) {
+            msg = err.message;
+          } else if (typeof err === 'object' && err !== null) {
+            const e = err as Record<string, unknown>;
+            msg = typeof e.message === 'string' ? e.message
+                : typeof e.error   === 'string' ? e.error
+                : JSON.stringify(err);
+          } else {
+            msg = String(err);
+          }
+          set({ step: 'error', errorMsg: msg });
         }
       },
 

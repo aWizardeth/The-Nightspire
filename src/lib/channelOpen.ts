@@ -257,7 +257,7 @@ export async function requestFundingSignature(
     solution,
   };
 
-  const result: { spend_bundle: SpendBundle } = await session.request({
+  const result: { spend_bundle: SpendBundle } | SpendBundle = await session.request({
     method: 'chip0002_signCoinSpends',
     params: {
       coin_spends:  [coinSpend],
@@ -266,8 +266,14 @@ export async function requestFundingSignature(
     },
   });
 
+  // Sage may return { spend_bundle: ... } or the SpendBundle directly
+  const bundle: SpendBundle = (result as { spend_bundle?: SpendBundle }).spend_bundle ?? (result as SpendBundle);
+  if (!bundle || !bundle.aggregated_signature) {
+    throw new Error(`[aWizard] signCoinSpends returned no spend_bundle — response: ${JSON.stringify(result)}`);
+  }
+
   console.log(`[aWizard] Channel sign OK memo="${memo}" coin=${realCoin.coinName}`);
-  return result.spend_bundle;
+  return bundle;
 }
 
 /**
