@@ -28,12 +28,14 @@ import {
 } from '../store/chellyzStore';
 import type { ChellyzCard } from '../lib/chellyzCards';
 import type { TurnPhase } from '../lib/chellyzEngine';
-
-// ─── Card sizes (+40% from previous iteration) ──────────────────────
-const CARD_SM   = 'w-[101px] h-[129px]';
-const CARD_MD   = 'w-[120px] h-[148px]';
-const CARD_HAND = 'w-[120px] h-[123px]';
 import useBowActivityStore from '../store/bowActivityStore';
+import useChellyzLobbyStore from '../store/chellyzLobbyStore';
+import { useWalletConnect } from '../providers/WalletConnectProvider';
+import { useIsMobile } from '../hooks/useIsMobile';
+
+// CSS variable names for responsive card sizes — injected by GameBoard via style prop
+// Desktop:  sm=101×129  md=120×148  hand=120×123  deck=40×56
+// Mobile:   sm=62×80    md=74×96    hand=74×80    deck=32×42
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
 
@@ -84,7 +86,9 @@ interface CardSlotProps {
 }
 
 function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: CardSlotProps) {
-  const w = size === 'sm' ? CARD_SM : CARD_MD;
+  const sizeStyle: React.CSSProperties = size === 'sm'
+    ? { width: 'var(--cz-sm-w)', height: 'var(--cz-sm-h)' }
+    : { width: 'var(--cz-md-w)', height: 'var(--cz-md-h)' };
   const colorCls = card ? (ELEMENT_COLOR[card.element] ?? ELEMENT_COLOR['Neutral']) : 'bg-zinc-800/60 border-zinc-600';
   const ringCls  = highlight ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-900' : '';
   const [imgError, setImgError] = useState(false);
@@ -95,7 +99,8 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
       <button
         onClick={onClick}
         disabled={!onClick}
-        className={`${w} rounded border ${colorCls} ${ringCls} relative overflow-hidden flex flex-row items-stretch cursor-pointer select-none transition-all hover:brightness-110 disabled:cursor-default`}
+        style={sizeStyle}
+        className={`rounded border ${colorCls} ${ringCls} relative overflow-hidden flex flex-row items-stretch cursor-pointer select-none transition-all hover:brightness-110 disabled:cursor-default`}
       >
         {flipped ? (
           <span className="text-zinc-500 text-[9px] m-auto">🂠</span>
@@ -161,7 +166,10 @@ function DeckPile({ count, label, color = 'bg-zinc-700' }: { count: number; labe
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className="text-[9px] text-zinc-400 uppercase">{label}</span>
-      <div className={`w-10 h-14 rounded border border-zinc-600 ${color} flex items-center justify-center`}>
+      <div
+        className={`rounded border border-zinc-600 ${color} flex items-center justify-center`}
+        style={{ width: 'var(--cz-deck-w)', height: 'var(--cz-deck-h)' }}
+      >
         <span className="text-xs font-bold text-white">{count}</span>
       </div>
     </div>
@@ -281,13 +289,306 @@ function CoinOverlay({ result, onDone }: { result: 'heads' | 'tails'; onDone: ()
   );
 }
 
+// ─── Invite code pill ────────────────────────────────────────────────────────
+
+function InviteCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch { /* noop */ }
+    document.body.removeChild(ta);
+    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2"
+      style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.4)' }}>
+      <span className="text-xl font-bold tracking-[0.3em] text-purple-300">{code}</span>
+      <button onClick={copy} className="text-[11px] font-bold px-2 py-1 rounded transition-all"
+        style={{
+          background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.07)',
+          border: `1px solid ${copied ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.15)'}`,
+          color: copied ? '#4ade80' : '#8ba3b0',
+        }}>
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Chellyz PvP Lobby Panel ──────────────────────────────────────────────────
+
+interface ChellyzPvpLobbyPanelProps {
+  userId:   string;
+  userName: string;
+  onBack:   () => void;
+}
+
+interface PublicLobbyEntry {
+  code:      string;
+  hostId:    string;
+  hostName:  string;
+  createdAt: number;
+  gameType?: string;
+}
+
+function ChellyzPvpLobbyPanel({ userId, userName, onBack }: ChellyzPvpLobbyPanelProps) {
+  const lobby = useChellyzLobbyStore();
+  const nfts  = useBowActivityStore((s) => s.wallet.nfts);
+  const { session, walletAddress, fingerprint, connect, isConnecting, clientReady, wcRequest } = useWalletConnect();
+
+  const address   = walletAddress ?? (fingerprint ? `xch1${fingerprint}` : null);
+  const hasWallet = !!session;
+
+  const [joinCode, setJoinCode]     = useState('');
+  const [makePublic, setMakePublic] = useState(false);
+  const [publicLobbies, setPublicLobbies] = useState<PublicLobbyEntry[]>([]);
+  const [loadingBrowser, setLoadingBrowser] = useState(false);
+
+  // Refresh public lobby list when idle
+  useEffect(() => {
+    if (lobby.step !== 'idle') return;
+    let cancelled = false;
+    setLoadingBrowser(true);
+    fetch('/api/lobbies')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) {
+          // Only show Chellyz lobbies in the Chellyz browser
+          const all = (data.lobbies ?? []) as PublicLobbyEntry[];
+          setPublicLobbies(all.filter((l) => l.gameType === 'chellyz' || !l.gameType));
+        }
+      })
+      .catch(() => { if (!cancelled) setPublicLobbies([]); })
+      .finally(() => { if (!cancelled) setLoadingBrowser(false); });
+    return () => { cancelled = true; };
+  }, [lobby.step]);
+
+  const handleCreate = () => {
+    lobby.createLobby(makePublic, userId, userName);
+  };
+
+  const handleJoin = () => {
+    const code = joinCode.trim().toUpperCase();
+    if (code.length !== 6) return;
+    lobby.joinLobby(code);
+  };
+
+  const handleConfirmReady = () => {
+    if (!address) return;
+    lobby.confirmReady(address, { request: wcRequest }, userId, nfts.length ? nfts : null);
+  };
+
+  // === OPEN state — game starts automatically from root ChellyzTab useEffect ===
+  if (lobby.step === 'open') {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-4 h-full">
+        <div className="text-4xl">🌸</div>
+        <p className="text-sm font-bold text-purple-300">Channel Open!</p>
+        <p className="text-xs text-zinc-400 text-center">Preparing your Chellyz decks and starting the match…</p>
+        <div className="flex gap-1">
+          <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // === SETTLING state ===
+  if (lobby.step === 'settling') {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-4 h-full">
+        <div className="text-4xl animate-pulse">⚖️</div>
+        <p className="text-sm font-bold text-purple-300">Settling…</p>
+        <p className="text-xs text-zinc-400">Broadcasting settlement to the Chia network.</p>
+      </div>
+    );
+  }
+
+  // === ERROR state ===
+  if (lobby.step === 'error') {
+    return (
+      <div className="flex flex-col items-center gap-3 p-4">
+        <p className="text-xs text-red-400 text-center">⚠️ {lobby.errorMsg}</p>
+        <div className="flex gap-2">
+          <button onClick={lobby.reset} className="px-3 py-1.5 rounded text-xs font-bold bg-zinc-800 border border-zinc-600 text-zinc-300">Try Again</button>
+          <button onClick={onBack}     className="px-3 py-1.5 rounded text-xs font-bold bg-zinc-800 border border-zinc-600 text-zinc-300">Back</button>
+        </div>
+      </div>
+    );
+  }
+
+  // === PENDING / SIGNING / WAITING_PEER / BROADCASTING ===
+  if (lobby.step !== 'idle') {
+    const isCreator  = lobby.role === 'creator';
+    const isSigning  = lobby.step === 'signing';
+    const isWaiting  = lobby.step === 'waiting_peer' || lobby.step === 'broadcasting';
+
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        {/* Deck preview */}
+        <div className="rounded-lg p-2 text-xs text-center"
+          style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd' }}>
+          {nfts.length > 0
+            ? `✨ ${nfts.length} NFT deck ready`
+            : '📦 Starter deck will be used'}
+        </div>
+
+        {/* Invite code (creator only) */}
+        {isCreator && lobby.inviteCode && (
+          <div className="space-y-1">
+            <p className="text-[11px] text-zinc-400 text-center">Share this code with your opponent</p>
+            <InviteCode code={lobby.inviteCode} />
+          </div>
+        )}
+
+        {/* Joined banner */}
+        {lobby.opponentJoined && (
+          <div className="rounded-lg px-3 py-2 text-xs text-center animate-pulse"
+            style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
+            ✨ Opponent has joined! Tap "I'm Ready" to lock in your deck.
+          </div>
+        )}
+
+        {/* Status */}
+        <div className="text-center text-[11px] text-zinc-400">
+          {isSigning  && '⏳ Awaiting wallet signature…'}
+          {isWaiting  && (isCreator ? 'Signed! Waiting for opponent to confirm…' : '⚡ Submitting to the Chia network…')}
+          {lobby.step === 'pending' && (isCreator ? 'Waiting for opponent to join…' : `Joined lobby ${lobby.inviteCode}`)}
+        </div>
+
+        {/* I'm Ready button */}
+        {lobby.step === 'pending' && (
+          hasWallet ? (
+            <button
+              onClick={handleConfirmReady}
+              className="w-full py-2 rounded-lg text-sm font-bold"
+              style={{ background: 'linear-gradient(135deg, #9333ea, #6366f1)', color: '#fff', border: '1px solid rgba(147,51,234,0.5)' }}
+            >
+              🌸 I'm Ready — Lock in Deck
+            </button>
+          ) : (
+            <button
+              onClick={() => connect()}
+              disabled={!clientReady || isConnecting}
+              className="w-full py-2.5 rounded-lg text-sm font-bold"
+              style={{ background: !clientReady ? 'rgba(60,60,60,0.6)' : 'linear-gradient(135deg, #00d9ff, #9333ea)', color: '#fff', border: '2px solid rgba(255,255,255,0.2)', cursor: !clientReady ? 'not-allowed' : 'pointer', opacity: !clientReady ? 0.5 : 1 }}
+            >
+              {isConnecting ? '⏳ Connecting…' : '🔗 Connect Wallet to Continue'}
+            </button>
+          )
+        )}
+
+        {/* Waiting spinner */}
+        {(isSigning || isWaiting) && (
+          <div className="flex justify-center gap-1 py-1">
+            {[0,1,2].map((i) => (
+              <span key={i} className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+            ))}
+          </div>
+        )}
+
+        <button onClick={() => { lobby.exitLobby(); onBack(); }} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors text-center w-full mt-1">
+          ✕ Leave Lobby
+        </button>
+      </div>
+    );
+  }
+
+  // === IDLE — lobby browser + create/join ===
+  return (
+    <div className="flex flex-col gap-3 p-4 overflow-y-auto">
+      <div className="flex items-center gap-2">
+        <button onClick={onBack} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">← Back</button>
+        <h3 className="text-sm font-bold text-purple-300">🌸 Chellyz PvP Lobby</h3>
+      </div>
+
+      {/* Deck info */}
+      {nfts.length > 0 ? (
+        <div className="rounded p-2 text-xs text-center"
+          style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
+          ✨ {nfts.length} NFTs loaded — your collection will be your deck
+        </div>
+      ) : (
+        <div className="rounded p-2 text-xs text-center bg-zinc-800 border border-zinc-700 text-zinc-400">
+          No NFTs — a Starter Deck will be used. Connect wallet &amp; load fighters first.
+        </div>
+      )}
+
+      {/* Create lobby */}
+      <div className="rounded-lg p-3 space-y-2" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.3)' }}>
+        <p className="text-xs font-bold text-purple-300">Create Lobby</p>
+        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+          <input type="checkbox" checked={makePublic} onChange={(e) => setMakePublic(e.target.checked)} className="accent-purple-500" />
+          List in public browser
+        </label>
+        <button onClick={handleCreate}
+          className="w-full py-2 rounded text-xs font-bold"
+          style={{ background: 'rgba(139,92,246,0.3)', border: '1px solid rgba(139,92,246,0.5)', color: '#e9d5ff', cursor: 'pointer' }}>
+          + Create Chellyz Lobby
+        </button>
+      </div>
+
+      {/* Join by code */}
+      <div className="rounded-lg p-3 space-y-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)' }}>
+        <p className="text-xs font-bold text-indigo-300">Join by Code</p>
+        <div className="flex gap-2">
+          <input
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+            placeholder="ABC123"
+            maxLength={6}
+            className="flex-1 rounded px-2 py-1.5 text-sm font-mono text-center uppercase"
+            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.4)', color: '#e0f7ff', outline: 'none' }}
+          />
+          <button
+            onClick={handleJoin}
+            disabled={joinCode.trim().length !== 6}
+            className="px-3 py-1.5 rounded text-xs font-bold"
+            style={{ background: joinCode.trim().length === 6 ? 'rgba(99,102,241,0.4)' : 'rgba(60,60,60,0.4)', border: '1px solid rgba(99,102,241,0.4)', color: '#c7d2fe', cursor: joinCode.trim().length === 6 ? 'pointer' : 'not-allowed' }}
+          >
+            Join
+          </button>
+        </div>
+      </div>
+
+      {/* Public lobby browser */}
+      <div>
+        <p className="text-[11px] text-zinc-500 mb-1">Public Chellyz Lobbies</p>
+        {loadingBrowser ? (
+          <p className="text-xs text-zinc-600 text-center">Loading…</p>
+        ) : publicLobbies.length === 0 ? (
+          <p className="text-xs text-zinc-600 text-center">No open lobbies — create one!</p>
+        ) : (
+          <div className="space-y-1">
+            {publicLobbies.map((l) => (
+              <button key={l.code} onClick={() => lobby.joinLobby(l.code)}
+                className="w-full flex items-center justify-between rounded px-3 py-2 text-xs transition-all"
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--text-color)' }}>
+                <span className="font-semibold">{l.hostName}</span>
+                <span className="font-mono text-purple-400 ml-2">{l.code}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Lobby screen ─────────────────────────────────────────────────────────────
 
-function ChellyzLobby({ userName }: { userId: string; userName: string }) {
-  const startNewGame = useChellyzStore((s) => s.startNewGame);
+function ChellyzLobby({ userId, userName }: { userId: string; userName: string }) {
+  const startNewGame  = useChellyzStore((s) => s.startNewGame);
   const enrichImages  = useChellyzStore((s) => s.enrichImages);
-  const nfts = useBowActivityStore((s) => s.wallet.nfts);
-  const [mode, setMode] = useState<'ai' | 'hot_seat'>('ai');
+  const nfts          = useBowActivityStore((s) => s.wallet.nfts);
+  const chellyzLobby  = useChellyzLobbyStore();
+
+  const [mode, setMode] = useState<'ai' | 'hot_seat' | 'pvp'>('ai');
 
   const handleStart = () => {
     if (mode === 'ai') {
@@ -295,13 +596,24 @@ function ChellyzLobby({ userName }: { userId: string; userName: string }) {
     } else {
       startNewGame('Player 1', nfts.length ? nfts : null, 'Player 2', null, 'hot_seat');
     }
-    // Async: fetch missing card images in the background (IPFS already resolved
-    // synchronously; this covers NFTs whose image wasn't in Sage metadata)
     void enrichImages();
   };
 
+  // If a PvP lobby is already active (restored from localStorage), jump straight to its panel
+  if (chellyzLobby.step !== 'idle') {
+    return (
+      <div className="h-full overflow-y-auto">
+        <ChellyzPvpLobbyPanel
+          userId={userId}
+          userName={userName}
+          onBack={() => { chellyzLobby.exitLobby(); setMode('ai'); }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center gap-4 p-4 h-full">
+    <div className="flex flex-col items-center gap-4 p-4 h-full overflow-y-auto">
       <h2 className="text-xl font-bold text-purple-300">🌸 Chellyz</h2>
       <p className="text-sm text-zinc-400 text-center">A card battle game of magic and strategy.</p>
 
@@ -315,24 +627,40 @@ function ChellyzLobby({ userName }: { userId: string; userName: string }) {
         </div>
       )}
 
-      <div className="flex gap-2">
-        {(['ai', 'hot_seat'] as const).map((m) => (
+      {/* Mode selector */}
+      <div className="flex gap-1.5 flex-wrap justify-center">
+        {(['ai', 'hot_seat', 'pvp'] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
-            className={`px-3 py-1.5 rounded text-sm font-medium border transition-all ${mode === m ? 'bg-purple-700 border-purple-500 text-white' : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-400'}`}
+            className={`px-3 py-1.5 rounded text-xs font-medium border transition-all ${
+              mode === m
+                ? 'bg-purple-700 border-purple-500 text-white'
+                : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-400'
+            }`}
           >
-            {m === 'ai' ? '🤖 vs AI' : '👥 Hot Seat'}
+            {m === 'ai' ? '🤖 vs AI' : m === 'hot_seat' ? '👥 Hot Seat' : '🔮 PvP Online'}
           </button>
         ))}
       </div>
 
-      <button
-        onClick={handleStart}
-        className="mt-2 px-6 py-2 bg-purple-600 hover:bg-purple-500 rounded font-bold text-white text-sm transition-all"
-      >
-        Start Game
-      </button>
+      {mode === 'pvp' ? (
+        // PvP Online — show lobby panel inline
+        <div className="w-full max-w-xs">
+          <ChellyzPvpLobbyPanel
+            userId={userId}
+            userName={userName}
+            onBack={() => setMode('ai')}
+          />
+        </div>
+      ) : (
+        <button
+          onClick={handleStart}
+          className="mt-2 px-6 py-2 bg-purple-600 hover:bg-purple-500 rounded font-bold text-white text-sm transition-all"
+        >
+          Start Game
+        </button>
+      )}
 
       <div className="text-xs text-zinc-500 text-center max-w-xs mt-2">
         2-player card game · 50-card decks · First to 4 KOs wins
@@ -375,9 +703,29 @@ function GameBoard() {
   const log        = useChellyzStore(selectLog);
   const { lastRoll, lastCoinFlip, showingAnimation, clearAnimation, opponentType } = store;
 
+  const lobby = useChellyzLobbyStore();
+  const { wcRequest, walletAddress } = useWalletConnect();
+  const isPvp = opponentType === 'pvp';
+
+  const isMobile = useIsMobile();
+  const cardVars: React.CSSProperties = isMobile
+    ? {
+        '--cz-sm-w': '62px',  '--cz-sm-h': '80px',
+        '--cz-md-w': '74px',  '--cz-md-h': '96px',
+        '--cz-hand-w': '74px', '--cz-hand-h': '80px',
+        '--cz-deck-w': '32px', '--cz-deck-h': '42px',
+      } as React.CSSProperties
+    : {
+        '--cz-sm-w': '101px', '--cz-sm-h': '129px',
+        '--cz-md-w': '120px', '--cz-md-h': '148px',
+        '--cz-hand-w': '120px', '--cz-hand-h': '123px',
+        '--cz-deck-w': '40px',  '--cz-deck-h': '56px',
+      } as React.CSSProperties;
+
   const logRef = useRef<HTMLDivElement>(null);
   const [selectedHandCard, setSelectedHandCard] = useState<string | null>(null);
   const [pendingEvo, setPendingEvo] = useState<{ targetId: string | null }>({ targetId: null });
+  const [logOpen, setLogOpen] = useState(false); // mobile log toggle
 
   // Auto-scroll log
   useEffect(() => {
@@ -515,7 +863,10 @@ function GameBoard() {
   };
 
   return (
-    <div className="relative flex flex-col h-full bg-zinc-950 text-white overflow-hidden select-none">
+    <div
+      className="relative flex flex-col h-full bg-zinc-950 text-white overflow-hidden select-none"
+      style={cardVars}
+    >
 
       {/* Animation overlays */}
       {showingAnimation && lastRoll !== null && (
@@ -538,8 +889,8 @@ function GameBoard() {
         </div>
       )}
 
-      {/* Main: board column left + log column right */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Main: board column + log (desktop: side-by-side; mobile: board only with toggle) */}
+      <div className={`flex flex-1 min-h-0 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
       {/* Board column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
@@ -568,7 +919,7 @@ function GameBoard() {
                 <HPBar current={oppPlayer.active.currentHp ?? 0} max={oppPlayer.active.stats.maxHp} />
               )}
             </div>
-            <div className="flex flex-col items-center justify-center" style={{ height: 129 }}>
+            <div className="flex flex-col items-center justify-center" style={{ height: 'var(--cz-sm-h)' }}>
               <EnergyZone count={oppPlayer.energy.length} />
             </div>
           </div>
@@ -614,7 +965,7 @@ function GameBoard() {
                 <HPBar current={myPlayer.active.currentHp ?? 0} max={myPlayer.active.stats.maxHp} />
               )}
             </div>
-            <div className="flex flex-col items-center justify-center" style={{ height: 129 }}>
+            <div className="flex flex-col items-center justify-center" style={{ height: 'var(--cz-sm-h)' }}>
               <EnergyZone count={myPlayer.energy.length} />
             </div>
           </div>
@@ -642,7 +993,8 @@ function GameBoard() {
             <button
               key={card.instanceId}
               onClick={() => isMyTurn && handleCardClick(card)}
-              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-row items-stretch overflow-hidden transition-all`}
+              style={{ width: 'var(--cz-hand-w)', height: 'var(--cz-hand-h)', flexShrink: 0 }}
+              className={`rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-row items-stretch overflow-hidden transition-all`}
             >
               {/* Image fills height */}
               {card.imageUri ? (
@@ -688,20 +1040,56 @@ function GameBoard() {
         <WizardHint />
       </div>
 
+      {/* PvP settle / forfeit panel */}
+      {isPvp && lobby.step === 'open' && phase !== 'coin_flip' && (
+        <div className="border-t border-zinc-800 px-2 py-1.5 flex gap-1.5 flex-wrap justify-center shrink-0">
+          {phase === 'finished' ? (
+            <>
+              <ActionBtn label="🏆 Settle Win"  onClick={() => lobby.settlePvpBattle({ request: wcRequest }, 'win',  walletAddress ?? undefined)} />
+              <ActionBtn label="💀 Settle Loss" onClick={() => lobby.settlePvpBattle({ request: wcRequest }, 'loss', walletAddress ?? undefined)} />
+              <ActionBtn label="⚖️ Draw"        onClick={() => lobby.settlePvpBattle({ request: wcRequest }, 'draw', walletAddress ?? undefined)} />
+            </>
+          ) : (
+            <ActionBtn variant="ghost" label="🏳️ Forfeit" onClick={() => lobby.settlePvpBattle({ request: wcRequest }, 'forfeit', walletAddress ?? undefined)} />
+          )}
+        </div>
+      )}
+      {isPvp && lobby.step === 'settling' && (
+        <div className="border-t border-zinc-800 px-2 py-2 text-center text-xs text-purple-400 animate-pulse shrink-0">
+          ⚖️ Settling on-chain…
+        </div>
+      )}
+
       </div>{/* end board column */}
 
-      {/* Log column — slim right sidebar */}
-      <div className="flex flex-col border-l border-zinc-800 overflow-hidden shrink-0" style={{ width: 154 }}>
-        <p className="text-[12px] text-zinc-500 uppercase tracking-wide px-1.5 pt-1 pb-0.5 shrink-0">📜 Log</p>
-        <div
-          ref={logRef}
-          className="flex-1 overflow-y-auto px-1 py-0.5 scrollbar-hide"
-        >
-          {log.slice(-40).map((entry, i) => (
-            <p key={i} className="text-[12px] text-zinc-400 leading-relaxed">{entry}</p>
-          ))}
+      {/* Log — desktop: right sidebar; mobile: collapsible bottom strip */}
+      {isMobile ? (
+        <div className="border-t border-zinc-800 shrink-0">
+          <button
+            onClick={() => setLogOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-3 py-1 text-[10px] text-zinc-500 hover:text-zinc-400"
+          >
+            <span>📜 Battle Log ({log.length})</span>
+            <span>{logOpen ? '▾' : '▸'}</span>
+          </button>
+          {logOpen && (
+            <div ref={logRef} className="max-h-24 overflow-y-auto px-2 pb-1 scrollbar-hide">
+              {log.slice(-20).map((entry, i) => (
+                <p key={i} className="text-[10px] text-zinc-400 leading-relaxed">{entry}</p>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col border-l border-zinc-800 overflow-hidden shrink-0" style={{ width: 154 }}>
+          <p className="text-[12px] text-zinc-500 uppercase tracking-wide px-1.5 pt-1 pb-0.5 shrink-0">📜 Log</p>
+          <div ref={logRef} className="flex-1 overflow-y-auto px-1 py-0.5 scrollbar-hide">
+            {log.slice(-40).map((entry, i) => (
+              <p key={i} className="text-[12px] text-zinc-400 leading-relaxed">{entry}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       </div>{/* end main flex row */}
     </div>
@@ -735,8 +1123,29 @@ function ActionBtn({
 // ─── Root export ──────────────────────────────────────────────────────────────
 
 export default function ChellyzTab({ userId, userName = 'Wizard' }: ChellyzTabProps) {
-  const game   = useChellyzStore((s) => s.game);
-  const winner = useChellyzStore(selectWinner);
+  const chStore  = useChellyzStore();
+  const game     = useChellyzStore((s) => s.game);
+  const winner   = useChellyzStore(selectWinner);
+  const nfts     = useBowActivityStore((s) => s.wallet.nfts);
+  const lobby    = useChellyzLobbyStore();
+
+  const pvpAutoStarted = useRef(false);
+
+  // Auto-start Chellyz game when the PvP channel opens
+  useEffect(() => {
+    if (lobby.step !== 'open') { pvpAutoStarted.current = false; return; }
+    if (pvpAutoStarted.current || !!game) return;
+    pvpAutoStarted.current = true;
+    chStore.startNewGame(
+      userName,
+      lobby.myDeck ?? (nfts.length ? nfts : null),
+      'Opponent',
+      lobby.opponentDeck ?? null,
+      'pvp',
+    );
+    void chStore.enrichImages();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lobby.step, lobby.opponentDeck]);
 
   if (!game) return <ChellyzLobby userId={userId} userName={userName} />;
   if (winner) return <GameOverScreen />;

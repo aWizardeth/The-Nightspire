@@ -35,7 +35,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type OpponentType = 'ai' | 'hot_seat';
+export type OpponentType = 'ai' | 'hot_seat' | 'pvp';
 
 interface ChellyzState {
   /** Current game state (null if no active game) */

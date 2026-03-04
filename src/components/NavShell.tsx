@@ -182,14 +182,14 @@ export default function NavShell({ activePage, onNavigate, user, children }: Nav
               className="absolute right-0 rounded-xl"
               style={{
                 top: 36,
-                width: 272,
+                width: 'min(272px, calc(100vw - 16px))',
                 background: 'var(--bg-card)',
                 border: '1px solid rgba(0,217,255,0.35)',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 24px rgba(0,217,255,0.12)',
                 zIndex: 100,
               }}
             >
-              <div className="p-3 space-y-3">
+              <div className="p-3 space-y-3" style={{ maxHeight: 'calc(100dvh - 96px)', overflowY: 'auto' }}>
 
                 {/* Status pill */}
                 <div className="flex items-center gap-2">

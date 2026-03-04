@@ -34,9 +34,14 @@ interface PublicLobby {
   partyAReady:  boolean;
   partyBReady:  boolean;
   partyBJoined: boolean;
-  /** Serialised Fighter object chosen by each party before signing */
+  /** Identifies the game mode — defaults to 'battle' for backwards compat */
+  gameType?:    'battle' | 'chellyz';
+  /** Serialised Fighter object chosen by each party before signing (battle mode) */
   partyAFighter: unknown | null;
   partyBFighter: unknown | null;
+  /** Serialised NFTData[] deck chosen by each party (chellyz mode) */
+  partyADeck?: unknown | null;
+  partyBDeck?: unknown | null;
 }
 
 let redis: Redis | null = null;
@@ -101,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── POST — register a new public lobby ──────────────────────────────────
   if (req.method === 'POST') {
-    const { code, hostId, hostName = 'Anonymous Wizard', isPublic = false } = req.body ?? {};
+    const { code, hostId, hostName = 'Anonymous Wizard', isPublic = false, gameType = 'battle' } = req.body ?? {};
     if (!code || typeof code !== 'string' || code.length !== 6) {
       return res.status(400).json({ error: 'Invalid lobby code' });
     }
@@ -113,11 +118,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hostId,
       hostName:     String(hostName).slice(0, 32),
       createdAt:    Date.now(),
+      gameType:     gameType === 'chellyz' ? 'chellyz' : 'battle',
       partyAReady:  false,
       partyBReady:  false,
       partyBJoined: false,
       partyAFighter: null,
       partyBFighter: null,
+      partyADeck:   null,
+      partyBDeck:   null,
     };
     await db.set(LOBBY_KEY(lobby.code), lobby, { ex: TTL_SECONDS });
     // Only add to the public index if explicitly public — private lobbies are
@@ -129,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── PATCH — mark a party as ready ─────────────────────────────────────────
   if (req.method === 'PATCH') {
-    const { code, partyAReady, partyBReady, partyBJoined, partyAFighter, partyBFighter } = req.body ?? {};
+    const { code, partyAReady, partyBReady, partyBJoined, partyAFighter, partyBFighter, partyADeck, partyBDeck } = req.body ?? {};
     if (!code || typeof code !== 'string' || code.length !== 6) {
       return res.status(400).json({ error: 'Invalid lobby code' });
     }
@@ -143,6 +151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...(partyBJoined !== undefined ? { partyBJoined: Boolean(partyBJoined) } : {}),
       ...(partyAFighter !== undefined ? { partyAFighter } : {}),
       ...(partyBFighter !== undefined ? { partyBFighter } : {}),
+      ...(partyADeck !== undefined ? { partyADeck } : {}),
+      ...(partyBDeck !== undefined ? { partyBDeck } : {}),
     };
     await db.set(key, updated, { ex: TTL_SECONDS });
     console.log(`[aWizard Lobbies] PATCH ${code.toUpperCase()} joined=${updated.partyBJoined} A=${updated.partyAReady} B=${updated.partyBReady}`);
