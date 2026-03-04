@@ -1,8 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWalletConnect } from '../providers/WalletConnectProvider';
+import type { WalletNft } from '../providers/WalletConnectProvider';
 import useBowActivityStore from '../store/bowActivityStore';
 import type { Fighter, NFTData } from '../store/bowActivityStore';
 import { parseWalletNfts, fetchNftMetadata } from '../lib/nftToFighter';
+
+// ─── Session-scoped NFT cache ─────────────────────────────────────────────────
+// Keyed by WalletConnect session.topic — survives React re-renders and tab
+// switches within the same browser session, but clears on tab close.
+// TTL prevents stale data after on-chain NFT mint/transfer.
+
+const NFT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function readNftCache(topic: string): WalletNft[] | null {
+  try {
+    const stored = sessionStorage.getItem(`bow-nfts-${topic}`);
+    if (!stored) return null;
+    const { ts, data } = JSON.parse(stored) as { ts: number; data: WalletNft[] };
+    if (Date.now() - ts > NFT_CACHE_TTL_MS) {
+      sessionStorage.removeItem(`bow-nfts-${topic}`);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function writeNftCache(topic: string, nfts: WalletNft[]): void {
+  try {
+    sessionStorage.setItem(`bow-nfts-${topic}`, JSON.stringify({ ts: Date.now(), data: nfts }));
+  } catch {
+    // sessionStorage quota exceeded — silently ignore
+  }
+}
 
 interface WalletTabProps {
   userId: string;
@@ -76,6 +107,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
   const [isLoadingNfts, setIsLoadingNfts] = useState(false);
   const [nftError, setNftError] = useState<string | null>(null);
   const debugInfo = SHOW_DEBUG_PANEL ? getDebugInfo() : null;
+  const autoLoadedRef = useRef(false);
 
   const {
     session,
@@ -86,18 +118,31 @@ export default function WalletTab({ userId }: WalletTabProps) {
     relayProbeStatus,
   } = useWalletConnect();
 
-  const loadNFTs = async () => {
+  const loadNFTs = useCallback(async (opts?: { forceRefresh?: boolean }) => {
+    const topic = session?.topic;
+    if (!topic) return;
     setIsLoadingNfts(true);
     setNftError(null);
     try {
-      const raw = await getNFTs();
-      console.log('[aWizard Wallet] Raw NFTs:', raw.length, raw);
-      // Log first NFT's top-level keys so we can see exact field names Sage returns
-      if (raw[0]) console.log('[aWizard Wallet] First NFT keys:', Object.keys(raw[0]), 'dataUris:', raw[0].dataUris, 'data_uris:', raw[0]['data_uris'], 'image:', raw[0].image);
-      // Enrich each NFT with metadata from metadataUris[0] (image + attributes)
-      const enriched = await fetchNftMetadata(raw);
-      console.log('[aWizard Wallet] Metadata fetched for', enriched.filter(n => n.metadata).length, '/', enriched.length, 'NFTs');
-      if (enriched[0]?.metadata) console.log('[aWizard Wallet] First NFT metadata:', enriched[0].metadata);
+      let enriched: WalletNft[];
+
+      // Check session cache first — skips all WalletConnect relay calls
+      const cached = !opts?.forceRefresh ? readNftCache(topic) : null;
+      if (cached) {
+        console.log('[aWizard Wallet] Cache hit — using', cached.length, 'cached NFTs (topic:', topic.slice(0, 8), '…)');
+        enriched = cached;
+      } else {
+        const raw = await getNFTs();
+        console.log('[aWizard Wallet] Raw NFTs:', raw.length, raw);
+        if (raw[0]) console.log('[aWizard Wallet] First NFT keys:', Object.keys(raw[0]), 'dataUris:', raw[0].dataUris, 'data_uris:', raw[0]['data_uris'], 'image:', raw[0].image);
+        // Enrich each NFT with metadata from metadataUris[0] (image + attributes)
+        enriched = await fetchNftMetadata(raw);
+        console.log('[aWizard Wallet] Metadata fetched for', enriched.filter(n => n.metadata).length, '/', enriched.length, 'NFTs');
+        if (enriched[0]?.metadata) console.log('[aWizard Wallet] First NFT metadata:', enriched[0].metadata);
+        // Persist to session cache for fast re-loads
+        writeNftCache(topic, enriched);
+      }
+
       const parsed = parseWalletNfts(enriched);
       store.setNfts(parsed);
       console.log('[aWizard Wallet] Parsed fighters:', parsed.length, 'images:', parsed.map(n => n.image));
@@ -112,7 +157,21 @@ export default function WalletTab({ userId }: WalletTabProps) {
     } finally {
       setIsLoadingNfts(false);
     }
-  };
+  }, [session, getNFTs, store]);
+
+  // Auto-load NFTs when a wallet session becomes active.
+  // Reads from session cache instantly if available, otherwise fires the WC fetch
+  // silently in the background so the user never has to click "Load Fighters".
+  useEffect(() => {
+    if (!session) {
+      // Reset guard when session ends so reconnect re-triggers load.
+      autoLoadedRef.current = false;
+      return;
+    }
+    if (autoLoadedRef.current) return;
+    autoLoadedRef.current = true;
+    loadNFTs();
+  }, [session, loadNFTs]);
 
   if (!userId) {
     return (
@@ -192,7 +251,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
           selected={store.wallet.selectedFighter}
           selectedNftId={store.wallet.selectedNftId}
           onSelect={(f, nftId) => store.selectFighter(f, nftId)}
-          onLoad={loadNFTs}
+          onLoad={() => loadNFTs({ forceRefresh: true })}
           isLoading={isLoadingNfts}
           nftError={nftError}
         />
@@ -239,7 +298,7 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
             textShadow: '0 1px 2px rgba(0,0,0,0.5)',
           }}
         >
-          {isLoading ? '⏳ Loading...' : '🔄 Load Fighters'}
+          {isLoading ? '⏳ Loading…' : nfts.length > 0 ? '🔄 Refresh' : '🔄 Load Fighters'}
         </button>
       </div>
 
@@ -251,13 +310,13 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
 
       {isEmpty ? (
         <div className="rounded-lg p-6 text-center" style={{ background: 'rgba(0,0,0,0.2)', border: '1px dashed var(--border-color)' }}>
-          <div className="text-3xl mb-2">🧙</div>
+          <div className="text-3xl mb-2">{isLoading ? '⏳' : '🧙'}</div>
           <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
-            {isLoading ? 'Fetching your NFT collection…' : 'No fighters found in this wallet'}
+            {isLoading ? 'Fetching your NFT collection…' : 'No Arcane BOW fighters found'}
           </p>
           {!isLoading && (
             <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Click "Load Fighters" to fetch your Arcane BOW NFTs
+              Tap "Refresh" to search again, or check that your wallet holds Arcane BOW NFTs
             </p>
           )}
         </div>

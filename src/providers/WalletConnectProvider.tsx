@@ -451,8 +451,10 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     // Params: { limit, offset } only — collectionId filter is client-side.
     // Response shape: { nfts: WalletNft[] }
     const APPROVED_COLLECTION = 'col198luy7d64a8zksmseysz9a7mn8dnk590huspz5q8p8p3pglqsn4s6fjpun';
-    const BATCH    = 50;
-    const MAX_NFTS = 500;
+    // Use a large batch size to minimise WalletConnect relay round-trips.
+    // Sage supports up to ~500; 200 is a safe default that covers most wallets in 1-2 requests.
+    const BATCH    = 200;
+    const MAX_NFTS = 600;
     const all: WalletNft[] = [];
 
     console.log('[aWizard] getNFTs: starting fetch, chain=', chain, 'topic=', session.topic);
