@@ -31,12 +31,15 @@ interface PublicLobby {
   createdAt: number;
 }
 
-let redis: Redis;
-function getRedis(): Redis {
+let redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
   if (!redis) {
     redis = new Redis({
-      url:   process.env.UPSTASH_REDIS_REST_URL!,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+      url:   process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
   }
   return redis;
@@ -50,6 +53,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const db = getRedis();
+
+  // Redis not configured — return empty lobbies gracefully instead of crashing
+  if (!db) {
+    console.warn('[aWizard Lobbies] Redis env vars not configured — running in no-persistence mode');
+    if (req.method === 'GET') return res.status(200).json({ lobbies: [] });
+    return res.status(200).json({ ok: true });
+  }
+
+  try {
 
   // ── GET — list all active public lobbies ────────────────────────────────
   if (req.method === 'GET') {
@@ -103,4 +115,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[aWizard Lobbies] Handler error:', err);
+    if (req.method === 'GET') return res.status(200).json({ lobbies: [] });
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }
