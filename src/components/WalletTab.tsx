@@ -216,6 +216,7 @@ interface FighterSelectorProps {
 
 function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
   const isEmpty = nfts.length === 0;
+  const [collectionOpen, setCollectionOpen] = useState(true);
 
   const handleSelect = (f: Fighter, nftId: string) => {
     onSelect(f, nftId);
@@ -276,8 +277,22 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
               </div>
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1.5">
-            {nfts.map((nft) => {
+
+          {/* Collapsible collection container */}
+          <div className="rounded-xl overflow-hidden"
+            style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.18)' }}>
+            <button
+              onClick={() => setCollectionOpen((o) => !o)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+              style={{ color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)' }}
+            >
+              <span>📦 My Collection <span style={{ color: 'rgba(255,255,255,0.3)' }}>({nfts.length})</span></span>
+              <span style={{ fontSize: 10 }}>{collectionOpen ? '▾' : '▸'}</span>
+            </button>
+            {collectionOpen && (
+              <div className="p-2">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {nfts.map((nft) => {
               const f = nft.fighter!;
               const isSelected = nft.id === selectedNftId;
               const elColour = ELEMENT_COLOURS[f.strength] ?? '#aaa';
@@ -334,6 +349,9 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
                 </button>
               );
             })}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

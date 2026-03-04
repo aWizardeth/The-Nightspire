@@ -599,20 +599,26 @@ export default function BattleTab({ userId }: BattleTabProps) {
         </div>
       )}
 
-      <PvpLobbyPanel userId={userId} reconnected={reconnected} />
+      {/* 2-column battle options */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Left: PvP */}
+        <PvpLobbyPanel userId={userId} reconnected={reconnected} />
 
-      {selectedFighter ? (
-        <AiPracticePanel fighter={selectedFighter} onStartBattle={handleStartAiBattle} />
-      ) : (
-        <div className="rounded-xl p-3 text-center"
-          style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--border-color)' }}>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Select a fighter on the{' '}
-            <strong style={{ color: 'var(--text-color)' }}>Wallet</strong>{' '}
-            tab to unlock AI Practice.
-          </p>
-        </div>
-      )}
+        {/* Right: AI Practice */}
+        {selectedFighter ? (
+          <AiPracticePanel fighter={selectedFighter} onStartBattle={handleStartAiBattle} />
+        ) : (
+          <div className="rounded-xl p-3 text-center flex flex-col items-center justify-center gap-2"
+            style={{ background: 'rgba(245,158,11,0.05)', border: '1px dashed rgba(245,158,11,0.25)' }}>
+            <span className="text-2xl">🤖</span>
+            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              Select a fighter on the{' '}
+              <strong style={{ color: 'var(--text-color)' }}>Fighters</strong>{' '}
+              tab to unlock AI Practice.
+            </p>
+          </div>
+        )}
+      </div>
 
       {store.gui.battleLogs.length > 0 && (
         <div className="glow-card p-2">

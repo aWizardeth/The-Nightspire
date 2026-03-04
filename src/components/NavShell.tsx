@@ -20,7 +20,7 @@ interface NavShellProps {
 
 const tabs: { id: Page; icon: string; label: string }[] = [
   { id: 'battle',  icon: '⚔️',  label: 'Battle'  },
-  { id: 'wallet',  icon: '🔮',  label: 'Wallet'  },
+  { id: 'wallet',  icon: '🔮',  label: 'Fighters' },
   { id: 'chat',    icon: '🧙',  label: 'Wizard'  },
   { id: 'chellyz', icon: '🌸',  label: 'Chellyz' },
 ];
