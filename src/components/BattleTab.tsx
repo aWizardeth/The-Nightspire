@@ -230,11 +230,21 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
       </div>
 
       {/* Invite code */}
-      {lobby.inviteCode && lobby.step !== 'open' && (
+      {lobby.inviteCode && lobby.step !== 'open' && lobby.role === 'creator' && !lobby.isPublic && (
         <div>
-          <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
-            {lobby.role === 'creator' ? 'Share this code with your opponent:' : 'Your lobby code:'}
-          </p>
+          <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Share this code with your opponent:</p>
+          <InviteCode code={lobby.inviteCode} />
+        </div>
+      )}
+      {lobby.step !== 'open' && lobby.role === 'creator' && lobby.isPublic && (
+        <div className="rounded-lg px-2.5 py-2 text-[10px]"
+          style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.25)', color: '#6ee7b7' }}>
+          🌐 Your lobby is listed in the public browser — waiting for an opponent to join…
+        </div>
+      )}
+      {lobby.inviteCode && lobby.step !== 'open' && lobby.role === 'joiner' && (
+        <div>
+          <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Your lobby code:</p>
           <InviteCode code={lobby.inviteCode} />
         </div>
       )}
@@ -255,8 +265,10 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
       {lobby.step === 'pending' && (
         <div className="space-y-2.5">
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            {lobby.role === 'creator'
+            {lobby.role === 'creator' && !lobby.isPublic
               ? "Share the code above. When you're both ready, click Confirm Ready to sign and lock funds."
+              : lobby.role === 'creator' && lobby.isPublic
+              ? "Your lobby is open to anyone. When an opponent joins and you're both ready, click Confirm Ready to sign and lock funds."
               : "You've joined the lobby. When both players are ready, click Confirm Ready."}
           </p>
           {hasWallet ? (
@@ -387,6 +399,7 @@ function FighterPortrait({ src, size = 80, fill = false }: { src?: string; size?
 // ─── AI Practice Panel ────────────────────────────────────────────────────────
 
 function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStartBattle: () => void }) {
+  const [imgErr, setImgErr] = useState(false);
   const elColour = EL_COLOURS[fighter.strength] ?? '#aaa';
   const moves    = getAvailableMoves(fighter).filter(Boolean) as NonNullable<MoveKind>[];
   return (
@@ -403,39 +416,51 @@ function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStart
         </span>
       </div>
 
-      {/* Fighter card: image left, stats+moves right */}
-      <div className="flex gap-3 rounded-lg p-2"
-        style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${elColour}30` }}>
-        <img
-          src={fighter.imageUri}
-          alt={fighter.name}
-          className="rounded-lg object-contain flex-shrink-0"
-          style={{ width: 90, height: 110, background: 'rgba(0,0,0,0.3)' }}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-        />
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text-color)' }}>{fighter.name}</p>
-          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold self-start"
-            style={{ background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}>
-            {fighter.strength}
-          </span>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-0.5" style={{ fontSize: '0.72rem' }}>
-            <span style={{ color: '#4caf50' }}>❤ {fighter.stats.hp}</span>
-            <span style={{ color: '#ff6b35' }}>⚔ {fighter.stats.atk}</span>
-            <span style={{ color: '#2196f3' }}>🛡 {fighter.stats.def}</span>
-            <span style={{ color: '#ffd600' }}>💨 {fighter.stats.spd}</span>
-          </div>
-          <div className="mt-1">
-            <p className="text-[9px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>⚡ Moves</p>
-            <div className="flex flex-wrap gap-1">
-              {moves.map((m) => (
-                <span key={m} className="px-1.5 py-0.5 rounded text-[9px] font-bold"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-color)' }}>
-                  {MOVES[m].name}
-                </span>
-              ))}
+      {/* Fighter card — same layout as Fighters tab */}
+      <div className="rounded-lg overflow-hidden"
+        style={{ border: `1px solid ${elColour}40`, background: 'rgba(0,0,0,0.25)' }}>
+        <div className="flex" style={{ height: 160 }}>
+          {/* Image */}
+          {fighter.imageUri && !imgErr ? (
+            <img
+              src={fighter.imageUri}
+              alt={fighter.name}
+              className="object-contain"
+              style={{ flex: 3, width: 0, height: '100%', borderRight: `1px solid ${elColour}30` }}
+              onError={() => setImgErr(true)}
+            />
+          ) : (
+            <div className="flex items-center justify-center text-3xl"
+              style={{ flex: 3, height: '100%', background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}>
+              🧙
+            </div>
+          )}
+          {/* Stats column */}
+          <div className="px-1.5 py-2 flex flex-col gap-1.5 flex-shrink-0"
+            style={{ flex: 2, background: 'rgba(0,0,0,0.28)' }}>
+            <p className="font-bold leading-tight" style={{ color: 'var(--text-color)', fontSize: '0.85rem', wordBreak: 'break-word' }}>{fighter.name}</p>
+            <span className="inline-block px-1 py-0.5 rounded font-bold self-start"
+              style={{ fontSize: '0.75rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}>
+              {fighter.strength}
+            </span>
+            <div className="flex flex-col gap-1 mt-0.5">
+              <span style={{ fontSize: '0.9rem', color: '#4caf50' }}>❤ {fighter.stats.hp}</span>
+              <span style={{ fontSize: '0.9rem', color: '#ff6b35' }}>⚔ {fighter.stats.atk}</span>
+              <span style={{ fontSize: '0.9rem', color: '#2196f3' }}>🛡 {fighter.stats.def}</span>
+              <span style={{ fontSize: '0.9rem', color: '#ffd600' }}>💨 {fighter.stats.spd}</span>
             </div>
           </div>
+        </div>
+        {/* Moves row */}
+        <div className="px-2 py-1.5 flex flex-wrap gap-1"
+          style={{ borderTop: `1px solid ${elColour}20`, background: 'rgba(0,0,0,0.18)' }}>
+          <p className="text-[9px] font-semibold w-full mb-0.5" style={{ color: 'var(--text-muted)' }}>⚡ Moves</p>
+          {moves.map((m) => (
+            <span key={m} className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-color)' }}>
+              {MOVES[m].name}
+            </span>
+          ))}
         </div>
       </div>
 
