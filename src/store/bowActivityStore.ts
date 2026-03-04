@@ -30,6 +30,7 @@ export interface WalletState {
   isConnecting: boolean;
   nfts: NFTData[];
   selectedFighter: Fighter | null;
+  selectedNftId: string | null;
 }
 
 // Shared battle state (synchronized between users)
@@ -71,6 +72,7 @@ interface BowActivityStore {
   setWalletConnecting: (connecting: boolean) => void;
   setNfts: (nfts: NFTData[]) => void;
   setSelectedFighter: (fighter: Fighter | null) => void;
+  setSelectedNftId: (id: string | null) => void;
 
   // Shared battle state (synchronized)
   battle: BattleState | null;
@@ -112,6 +114,7 @@ export const useBowActivityStore = create<BowActivityStore>()(
         isConnecting: false,
         nfts: [],
         selectedFighter: DEFAULT_FIGHTER,
+        selectedNftId: null,
       },
 
       setWalletFingerprint: (fp) =>
@@ -142,6 +145,11 @@ export const useBowActivityStore = create<BowActivityStore>()(
       setSelectedFighter: (fighter) =>
         set((state) => ({
           wallet: { ...state.wallet, selectedFighter: fighter }
+        })),
+
+      setSelectedNftId: (id) =>
+        set((state) => ({
+          wallet: { ...state.wallet, selectedNftId: id }
         })),
 
       // Shared battle state

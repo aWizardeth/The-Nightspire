@@ -190,7 +190,8 @@ export default function WalletTab({ userId }: WalletTabProps) {
         <FighterSelector
           nfts={store.wallet.nfts}
           selected={store.wallet.selectedFighter}
-          onSelect={(f) => store.setSelectedFighter(f)}
+          selectedNftId={store.wallet.selectedNftId}
+          onSelect={(f, nftId) => { store.setSelectedFighter(f); store.setSelectedNftId(nftId); }}
           onLoad={loadNFTs}
           isLoading={isLoadingNfts}
           nftError={nftError}
@@ -205,24 +206,19 @@ export default function WalletTab({ userId }: WalletTabProps) {
 interface FighterSelectorProps {
   nfts: NFTData[];
   selected: Fighter | null;
-  onSelect: (f: Fighter) => void;
+  selectedNftId: string | null;
+  onSelect: (f: Fighter, nftId: string) => void;
   onLoad: () => void;
   isLoading: boolean;
   nftError: string | null;
 }
 
 
-function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
+function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
   const isEmpty = nfts.length === 0;
-  // Track by nft.id so exactly one card is ever highlighted,
-  // even if two NFTs share the same fighter name/strength.
-  const [selectedNftId, setSelectedNftId] = useState<string | null>(
-    selected ? (nfts.find(n => n.fighter?.name === selected.name && n.fighter?.strength === selected.strength)?.id ?? null) : null
-  );
 
   const handleSelect = (f: Fighter, nftId: string) => {
-    setSelectedNftId(nftId);
-    onSelect(f);
+    onSelect(f, nftId);
   };
 
   return (
