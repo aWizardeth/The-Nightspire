@@ -47,13 +47,13 @@ const ELEMENT_COLOURS: Record<string, string> = {
 };
 
 // Small component so each card has its own imgError state inside .map()
-function NftImage({ src, alt, elColour, height }: { src: string | undefined; alt: string; elColour: string; height: number }) {
+function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string; elColour: string }) {
   const [imgError, setImgError] = useState(false);
   if (!src || imgError) {
     return (
       <div
         className="flex items-center justify-center text-2xl rounded-l-lg"
-        style={{ flex: 3, height, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
+        style={{ flex: 3, height: '100%', background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -64,7 +64,7 @@ function NftImage({ src, alt, elColour, height }: { src: string | undefined; alt
       src={src}
       alt={alt}
       className="object-cover rounded-l-lg"
-        style={{ flex: 3, width: 0, height, borderRight: `1px solid ${elColour}30` }}
+      style={{ flex: 3, width: 0, height: '100%', borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -291,9 +291,9 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                     cursor: 'pointer',
                   }}
                 >
-                  {/* Horizontal layout — image fills card, stats sliver on right */}
+                  {/* Container height is the single control point — image fills 100% */}
                   <div className="flex" style={{ height: 240 }}>
-                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} height={240} />
+                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
                     {/* Stats column — flex:2 (~40% of card) */}
                     <div className="px-1 py-1.5 flex flex-col gap-1 flex-shrink-0"
