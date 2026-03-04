@@ -56,7 +56,7 @@
 ### 🔮 NFT Deep Scan (trait loading)
 - [ ] `chia_getNfts` returns NFT shells only — traits are NOT inline
 - [ ] After loading NFTs, fetch `metadataUris[0]` for each NFT to get: `tier`, `wins`, `losses`, `arcane_power_score`, `strength`, `weakness`, `effect`
-- [ ] Cache fetched metadata in session storage to avoid re-fetch on every load
+- [x] Cache fetched metadata in session storage to avoid re-fetch on every load
 - [ ] Handle CORS / IPFS redirect for external metadata URIs
 - [ ] Once metadata is loaded, re-parse fighters with `nftToFighterData` for accurate stats
 - [ ] Show loading skeleton per NFT card as metadata streams in
@@ -87,6 +87,31 @@
 ---
 
 ## Completed
+
+### 📱 Mobile Responsive Layout (2026-03-03)
+- [x] `useIsMobile.ts` hook — ResizeObserver + resize fallback, 480px breakpoint
+- [x] NavShell dropdown — `min(272px, calc(100vw-16px))` + scrollable on short viewports
+- [x] GameBoard CSS variable card sizing injected from `isMobile`
+  - Desktop: sm=101×129 md=120×148 hand=120×123 deck=40×56
+  - Mobile: sm=62×80 md=74×96 hand=74×80 deck=32×42
+- [x] Battle log: desktop keeps 154px sidebar; mobile collapses to toggle strip at bottom
+
+### 🃏 Chellyz PvP Lobby (2026-03-03)
+- [x] `chellyzLobbyStore.ts` — Zustand+persist store (`bow-chellyz-lobby-v1`)
+  - createLobby / joinLobby / confirmReady / settlePvpBattle / exitLobby / reset
+  - Same Redis readiness handshake as Battle (partyADeck / partyBDeck fields)
+  - Rehydration reverts `signing/broadcasting → pending`, `settling → open`
+- [x] `api/lobbies.ts` — added `gameType`, `partyADeck`, `partyBDeck` — backwards-compatible
+- [x] `chellyzStore.OpponentType` — added `'pvp'`
+- [x] `ChellyzLobby` redesigned: 🤖 vs AI | 👥 Hot Seat | 🔮 PvP Online mode selector
+- [x] `ChellyzPvpLobbyPanel` — full lobby flow: browse public, create/join, invite code, ready handshake
+- [x] GameBoard settle/forfeit panel for PvP (win/loss/draw + forfeit)
+- [x] Root `ChellyzTab` pvpAutoStarted ref + useEffect → auto-starts game on `lobby.step === 'open'`
+
+### ⚡ NFT Fetch Performance (2026-03-03)
+- [x] `sessionStorage` NFT cache with 5-min TTL (keyed by WalletConnect session topic)
+- [x] Auto-load NFTs on session connect (no manual tap needed)
+- [x] WalletProvider batch size: 50 → 200; MAX_NFTS: 500 → 600
 
 ### 🏗 Foundation (2026-03-01)
 - [x] Initialize Vite + React 19 + TypeScript project

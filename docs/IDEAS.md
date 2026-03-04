@@ -27,8 +27,10 @@ While waiting for a battle to start or a channel to open, show a small interacti
 ### 💡 Multi-Guild Leaderboard
 Aggregate APS across multiple Discord servers running aWizard, creating a cross-server competitive ladder.
 
-### 💡 Mobile-First Activity Layout
-Discord Activities render in a small window on mobile. Design a compact, touch-friendly layout that still surfaces battle stats, NFT info, and wizard chat in stacked cards.
+### ~~💡 Mobile-First Activity Layout~~ ✅ Shipped (2026-03-03)
+~~Discord Activities render in a small window on mobile. Design a compact, touch-friendly layout that still surfaces battle stats, NFT info, and wizard chat in stacked cards.~~
+
+Implemented via `useIsMobile` hook + CSS variable card sizing in Chellyz GameBoard, NavShell adaptive dropdown, and collapsible battle log. See commit `8b139fd`.
 
 ### 💡 Notifications & Reminders
 aWizard sends DMs or channel messages when: your battle is ready, your tournament match is starting, a new gym tier unlocked, etc. The Activity settings panel would let users toggle notification categories.

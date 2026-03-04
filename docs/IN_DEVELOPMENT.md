@@ -45,7 +45,16 @@
 
 ## Recently Completed
 
-### 🔌 WalletConnect v2 Integration (2026-03-01 → 2026-03-02)
+### � Mobile / Desktop Responsive Layout (2026-03-03 — commit `8b139fd`)
+Full responsive layout pass across the Activity. `useIsMobile` hook (ResizeObserver, 480px breakpoint) drives CSS variable card sizing in Chellyz GameBoard — no more hardcoded Tailwind `w-[101px]` overflows on Discord mobile WebView. NavShell dropdown now clamps to viewport width. Battle log collapses to a bottom toggle strip on mobile.
+
+### 🃏 Chellyz PvP Lobby (2026-03-03 — commit `8b139fd`)
+Full PvP lobby system for Chellyz: `chellyzLobbyStore.ts` (mirrors `lobbyStore` but uses `NFTData[]` decks), `ChellyzPvpLobbyPanel` component (browse public games, create/join by invite code, ready handshake), GameBoard settle/forfeit panel, and root auto-start useEffect. `api/lobbies.ts` extended with `gameType`, `partyADeck`, `partyBDeck` — backwards-compatible with existing Battle lobbies.
+
+### ⚡ NFT Fetch Performance (2026-03-03 — commit `f945e53`)
+`sessionStorage` cache with 5-min TTL prevents re-fetching NFTs on every panel open. Auto-loads on wallet connect so mobile users don't need to tap "Load Fighters." WalletConnect batch size raised 50 → 200.
+
+### �🔌 WalletConnect v2 Integration (2026-03-01 → 2026-03-02)
 Full WalletConnect v2 relay integration working inside Discord Activity iframe. QR displays inline, relay rewritten via `index.html` WebSocket patch, clipboard fallback added, namespace corrected to mainnet-only required.
 
 ### 🎴 NFT Fighter Selector (2026-03-02)
