@@ -214,6 +214,16 @@ interface FighterSelectorProps {
 
 function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError }: FighterSelectorProps) {
   const isEmpty = nfts.length === 0;
+  // Track by nft.id so exactly one card is ever highlighted,
+  // even if two NFTs share the same fighter name/strength.
+  const [selectedNftId, setSelectedNftId] = useState<string | null>(
+    selected ? (nfts.find(n => n.fighter?.name === selected.name && n.fighter?.strength === selected.strength)?.id ?? null) : null
+  );
+
+  const handleSelect = (f: Fighter, nftId: string) => {
+    setSelectedNftId(nftId);
+    onSelect(f);
+  };
 
   return (
     <div className="glow-card">
@@ -273,12 +283,12 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
           <div className="grid grid-cols-4 gap-1.5">
             {nfts.map((nft) => {
               const f = nft.fighter!;
-              const isSelected = selected?.name === f.name && selected?.strength === f.strength;
+              const isSelected = nft.id === selectedNftId;
               const elColour = ELEMENT_COLOURS[f.strength] ?? '#aaa';
               return (
                 <button
                   key={nft.id}
-                  onClick={() => onSelect(f)}
+                  onClick={() => handleSelect(f, nft.id)}
                   className="rounded-lg text-left transition-all overflow-hidden w-full"
                   style={{
                     background: isSelected
@@ -292,7 +302,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   }}
                 >
                   {/* Container height is the single control point — image fills 100% */}
-                  <div className="flex" style={{ height: 240 }}>
+                  <div className="flex overflow-hidden" style={{ height: 240 }}>
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
                     {/* Stats column — flex:2 (~40% of card) */}
