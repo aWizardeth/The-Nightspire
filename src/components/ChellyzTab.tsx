@@ -29,11 +29,11 @@ import {
 import type { ChellyzCard } from '../lib/chellyzCards';
 import type { TurnPhase } from '../lib/chellyzEngine';
 
-// ─── Wizard hint sizes ────────────────────────────────────────────────────────
-// sm = bench / support cards  md = active card  (slightly larger than before)
-const CARD_SM = 'w-11 h-[60px]';
-const CARD_MD = 'w-14 h-[72px]';
-const CARD_HAND = 'w-14 h-[72px]';
+// ─── Card sizes (all zones now share a single row per player side) ──────────
+// Freed vertical space → cards are taller for bigger images
+const CARD_SM   = 'w-10 h-[92px]';
+const CARD_MD   = 'w-12 h-[106px]';
+const CARD_HAND = 'w-12 h-[88px]';
 import useBowActivityStore from '../store/bowActivityStore';
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
               <img
                 src={card.imageUri}
                 alt={card.name}
-                className="w-full h-9 object-contain rounded-sm bg-black/30"
+                className="w-full flex-1 min-h-0 object-contain rounded-sm bg-black/30"
                 onError={() => setImgError(true)}
               />
             ) : (
@@ -143,14 +143,14 @@ function HPBar({ current, max }: { current: number; max: number }) {
 
 function EnergyZone({ count, max = 7 }: { count: number; max?: number }) {
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span className="text-[9px] text-zinc-400 uppercase">EB</span>
-      <div className="flex flex-wrap gap-0.5 w-14 justify-center">
+    <div className="flex flex-col items-center justify-between gap-0.5" style={{ height: '100%' }}>
+      <span className="text-[8px] text-zinc-400 uppercase tracking-wide">EB</span>
+      <div className="flex flex-col gap-0.5 items-center">
         {Array.from({ length: max }).map((_, i) => (
-          <div key={i} className={`w-2.5 h-2.5 rounded-full border ${i < count ? 'bg-emerald-400 border-emerald-300' : 'bg-zinc-700 border-zinc-600'}`} />
+          <div key={i} className={`w-2 h-2 rounded-full border ${i < count ? 'bg-emerald-400 border-emerald-300' : 'bg-zinc-700 border-zinc-600'}`} />
         ))}
       </div>
-      <span className="text-[9px] text-emerald-400">{count}/{max}</span>
+      <span className="text-[8px] text-emerald-400 font-bold">{count}/{max}</span>
     </div>
   );
 }
@@ -544,28 +544,32 @@ function GameBoard() {
           <span className="text-[10px] text-zinc-400">KOs: {oppPlayer.kos}/4  |  Hand: {oppPlayer.hand.length}</span>
         </div>
 
-        {/* Opponent bench row */}
+        {/* Opponent — single merged row: B0 B1 B2 | Support Active EB | DK EBDeck */}
         <div className="flex items-end gap-1 justify-center">
+          {/* Bench */}
           {oppPlayer.bench.map((card, i) => (
             <CardSlot key={i} card={card} label={`B${i}`} size="sm" flipped />
           ))}
-          {/* Opponent decks (right side) */}
-          <div className="ml-auto flex gap-1">
-            <DeckPile count={oppPlayer.deck.length} label="DK" />
-            <DeckPile count={oppPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
-          </div>
-        </div>
-
-        {/* Opponent active row */}
-        <div className="flex items-start justify-center gap-2 py-0.5">
-          <CardSlot card={oppPlayer.support} label="Support" size="sm" flipped />
+          {/* Divider */}
+          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
+          {/* Support */}
+          <CardSlot card={oppPlayer.support} label="Supp" size="sm" flipped />
+          {/* Active + HP bar */}
           <div className="flex flex-col items-center">
             <CardSlot card={oppPlayer.active} label="Active" />
             {oppPlayer.active?.stats && (
               <HPBar current={oppPlayer.active.currentHp ?? 0} max={oppPlayer.active.stats.maxHp} />
             )}
           </div>
-          <EnergyZone count={oppPlayer.energy.length} />
+          {/* EB energy inline */}
+          <div className="flex flex-col items-center justify-center" style={{ height: 92 }}>
+            <EnergyZone count={oppPlayer.energy.length} />
+          </div>
+          {/* Divider */}
+          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
+          {/* Decks */}
+          <DeckPile count={oppPlayer.deck.length} label="DK" />
+          <DeckPile count={oppPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
         </div>
       </div>
 
@@ -574,14 +578,28 @@ function GameBoard() {
 
       {/* === LOCAL PLAYER SIDE === */}
       <div className="flex flex-col gap-1 p-1.5 pt-0.5">
-        {/* My active row */}
-        <div className="flex items-start justify-center gap-2 py-0.5">
+        {/* Me — single merged row: B0 B1 B2 | Support Active EB | DK EBDeck */}
+        <div className="flex items-end gap-1 justify-center">
+          {/* Bench */}
+          {myPlayer.bench.map((card, i) => (
+            <CardSlot
+              key={i}
+              card={card}
+              label={`B${i}`}
+              size="sm"
+              highlight={phase === 'retreat' && card !== null}
+              onClick={() => card && handleFieldCardClick(card)}
+            />
+          ))}
+          {/* Divider */}
+          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
+          {/* Support */}
           <CardSlot
             card={myPlayer.support}
-            label="Support"
+            label="Supp"
             size="sm"
-            onClick={myPlayer.support ? undefined : undefined}
           />
+          {/* Active + HP bar */}
           <div className="flex flex-col items-center">
             <CardSlot
               card={myPlayer.active}
@@ -593,25 +611,15 @@ function GameBoard() {
               <HPBar current={myPlayer.active.currentHp ?? 0} max={myPlayer.active.stats.maxHp} />
             )}
           </div>
-          <EnergyZone count={myPlayer.energy.length} />
-        </div>
-
-        {/* My bench + decks */}
-        <div className="flex items-end gap-1 justify-center">
-          {myPlayer.bench.map((card, i) => (
-            <CardSlot
-              key={i}
-              card={card}
-              label={`B${i}`}
-              size="sm"
-              highlight={phase === 'retreat' && card !== null}
-              onClick={() => card && handleFieldCardClick(card)}
-            />
-          ))}
-          <div className="ml-auto flex gap-1">
-            <DeckPile count={myPlayer.deck.length} label="DK" />
-            <DeckPile count={myPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
+          {/* EB energy inline */}
+          <div className="flex flex-col items-center justify-center" style={{ height: 92 }}>
+            <EnergyZone count={myPlayer.energy.length} />
           </div>
+          {/* Divider */}
+          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
+          {/* Decks */}
+          <DeckPile count={myPlayer.deck.length} label="DK" />
+          <DeckPile count={myPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
         </div>
 
         {/* Me info bar */}
@@ -631,13 +639,12 @@ function GameBoard() {
             <button
               key={card.instanceId}
               onClick={() => isMyTurn && handleCardClick(card)}
-              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}
-            >
+              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}            >
               {card.imageUri ? (
                 <img
                   src={card.imageUri}
                   alt={card.name}
-                  className="w-full h-9 object-contain rounded-sm bg-black/30"
+                  className="w-full flex-1 min-h-0 object-contain rounded-sm bg-black/30"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ) : (
