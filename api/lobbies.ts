@@ -27,12 +27,16 @@ const LOBBY_KEY   = (code: string) => `bow:lobby:${code}`;
 const INDEX_KEY   = 'bow:lobbies';
 
 interface PublicLobby {
-  code:        string;
-  hostId:      string;
-  hostName:    string;
-  createdAt:   number;
-  partyAReady: boolean;
-  partyBReady: boolean;
+  code:         string;
+  hostId:       string;
+  hostName:     string;
+  createdAt:    number;
+  partyAReady:  boolean;
+  partyBReady:  boolean;
+  partyBJoined: boolean;
+  /** Serialised Fighter object chosen by each party before signing */
+  partyAFighter: unknown | null;
+  partyBFighter: unknown | null;
 }
 
 let redis: Redis | null = null;
@@ -105,12 +109,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'hostId required' });
     }
     const lobby: PublicLobby = {
-      code:        code.toUpperCase(),
+      code:         code.toUpperCase(),
       hostId,
-      hostName:    String(hostName).slice(0, 32),
-      createdAt:   Date.now(),
-      partyAReady: false,
-      partyBReady: false,
+      hostName:     String(hostName).slice(0, 32),
+      createdAt:    Date.now(),
+      partyAReady:  false,
+      partyBReady:  false,
+      partyBJoined: false,
+      partyAFighter: null,
+      partyBFighter: null,
     };
     await db.set(LOBBY_KEY(lobby.code), lobby, { ex: TTL_SECONDS });
     // Only add to the public index if explicitly public — private lobbies are
@@ -122,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── PATCH — mark a party as ready ─────────────────────────────────────────
   if (req.method === 'PATCH') {
-    const { code, partyAReady, partyBReady } = req.body ?? {};
+    const { code, partyAReady, partyBReady, partyBJoined, partyAFighter, partyBFighter } = req.body ?? {};
     if (!code || typeof code !== 'string' || code.length !== 6) {
       return res.status(400).json({ error: 'Invalid lobby code' });
     }
@@ -131,11 +138,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
     const updated: PublicLobby = {
       ...lobby,
-      ...(partyAReady !== undefined ? { partyAReady: Boolean(partyAReady) } : {}),
-      ...(partyBReady !== undefined ? { partyBReady: Boolean(partyBReady) } : {}),
+      ...(partyAReady  !== undefined ? { partyAReady:  Boolean(partyAReady)  } : {}),
+      ...(partyBReady  !== undefined ? { partyBReady:  Boolean(partyBReady)  } : {}),
+      ...(partyBJoined !== undefined ? { partyBJoined: Boolean(partyBJoined) } : {}),
+      ...(partyAFighter !== undefined ? { partyAFighter } : {}),
+      ...(partyBFighter !== undefined ? { partyBFighter } : {}),
     };
     await db.set(key, updated, { ex: TTL_SECONDS });
-    console.log(`[aWizard Lobbies] Readiness updated ${code.toUpperCase()} A=${updated.partyAReady} B=${updated.partyBReady}`);
+    console.log(`[aWizard Lobbies] PATCH ${code.toUpperCase()} joined=${updated.partyBJoined} A=${updated.partyAReady} B=${updated.partyBReady}`);
     return res.status(200).json({ ok: true, lobby: updated });
   }
 

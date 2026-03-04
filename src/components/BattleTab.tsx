@@ -67,6 +67,8 @@ interface PublicLobbyEntry {
 
 function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: boolean }) {
   const lobby = useLobbyStore();
+  const store = useBowActivityStore();
+  const selectedFighter = store.wallet.selectedFighter;
   const {
     session, walletAddress, fingerprint,
     connect, cancelConnect, pairingUri, isConnecting, clientReady,
@@ -99,15 +101,16 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
     // Pass a proxy with .request() instead of the raw SessionTypes.Struct,
     // because channelOpen.ts calls session.request({ method, params }) —
     // that method lives on SignClient, not on the session object itself.
-    lobby.confirmReady(address, { request: wcRequest }, userId);
+    lobby.confirmReady(address, { request: wcRequest }, userId, selectedFighter ?? null);
   };
 
   const STEP_HEADER: Record<string, string> = {
     pending:      lobby.role === 'creator' ? 'Lobby Created' : 'Lobby Joined',
     signing:      'Signing with Sage…',
-    broadcasting: 'Broadcasting…',
-    waiting_peer: 'Waiting for Opponent',
+    broadcasting: 'Signed — Waiting for Opponent…',
+    waiting_peer: lobby.opponentJoined ? 'Opponent Joined ✨' : 'Waiting for Opponent',
     open:         'Channel Open ✅',
+    settling:     'Settling Channel…',
     error:        'Channel Error',
   };
 
@@ -268,6 +271,25 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
       {/* PENDING */}
       {lobby.step === 'pending' && (
         <div className="space-y-2.5">
+          {/* Fighter lock-in requirement */}
+          {!selectedFighter ? (
+            <div className="rounded-lg px-2.5 py-2 text-[10px] text-center"
+              style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.35)', color: '#fbbf24' }}>
+              <p className="font-bold mb-0.5">⚠️ Fighter required</p>
+              <p style={{ color: 'var(--text-muted)' }}>Select a fighter on the <strong style={{ color: 'var(--text-color)' }}>Fighters</strong> tab before signing.</p>
+            </div>
+          ) : (
+            <div className="rounded-lg px-2 py-1.5 flex items-center gap-2"
+              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}>
+              <span className="text-base">⚔️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold truncate" style={{ color: 'var(--text-color)' }}>{selectedFighter.name}</p>
+                <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>{selectedFighter.strength} · {selectedFighter.rarity}</p>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>Locked in</span>
+            </div>
+          )}
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {lobby.role === 'creator' && !lobby.isPublic
               ? "Share the code above. When you're both ready, click Confirm Ready to sign and lock funds."
@@ -278,7 +300,7 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
           {hasWallet ? (
             <button
               onClick={handleConfirmReady}
-              disabled={!address}
+              disabled={!address || !selectedFighter}
               className="w-full py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-40"
               style={{ background: 'rgba(139,92,246,0.8)', color: 'white', border: 'none' }}>
               ✅ I'm Ready — Sign &amp; Lock Funds
@@ -327,9 +349,22 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
 
       {/* WAITING_PEER */}
       {lobby.step === 'waiting_peer' && (
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-          ⏳ Your signature is locked. Waiting for your opponent to sign their side…
-        </p>
+        <div className="space-y-2">
+          {lobby.opponentJoined ? (
+            <div className="rounded-lg px-2.5 py-2 text-[10px]"
+              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.4)', color: '#34d399' }}>
+              ✨ Opponent has joined the lobby! Waiting for them to sign…
+            </div>
+          ) : (
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              ⏳ Your signature is locked. Share the code and wait for your opponent…
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full border-2 border-purple-400 border-t-transparent animate-spin flex-shrink-0" />
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Polling every 3s for opponent signature</span>
+          </div>
+        </div>
       )}
 
       {/* OPEN */}
@@ -337,18 +372,31 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
         <div className="space-y-2">
           <div className="rounded-lg p-2.5 text-center"
             style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)' }}>
-            <p className="text-xs font-bold text-emerald-400">⚔️ Channel open — battle begins!</p>
+            <p className="text-xs font-bold text-emerald-400">⚔️ Channel open — battle in progress!</p>
             {lobby.channel && (
               <p className="text-[9px] mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
                 {lobby.channel.channelId.slice(0, 24)}…
               </p>
             )}
           </div>
-          <button onClick={lobby.exitLobby}
-            className="w-full py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-            ↩ New Lobby
-          </button>
+          {lobby.opponentFighter && (
+            <div className="rounded-lg px-2 py-1.5 flex items-center gap-2"
+              style={{ background: 'rgba(242,63,66,0.07)', border: '1px solid rgba(242,63,66,0.25)' }}>
+              <span className="text-sm">👹</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold truncate" style={{ color: '#f87171' }}>Opponent: {lobby.opponentFighter.name}</p>
+                <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>{lobby.opponentFighter.strength} · {lobby.opponentFighter.rarity}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SETTLING */}
+      {lobby.step === 'settling' && (
+        <div className="flex items-center gap-2 py-1">
+          <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin flex-shrink-0" />
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Signing settlement with Sage…</span>
         </div>
       )}
 
@@ -486,6 +534,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
   const {
     session,
     connect, cancelConnect, pairingUri, isConnecting, clientReady,
+    wcRequest,
   } = useWalletConnect();
 
   const [selectedMove, setSelectedMove]         = useState<MoveKind>(null);
@@ -522,7 +571,11 @@ export default function BattleTab({ userId }: BattleTabProps) {
 
   const selectedFighter = store.wallet.selectedFighter;
   const currentBattle   = store.battle;
-  const isInBattle      = !!(currentBattle && currentBattle.status !== 'finished');
+  const isPvpLobbyOpen  = lobby.step === 'open' || lobby.step === 'settling' || (lobby.channel != null && lobby.step !== 'idle');
+  // For PvP, keep the battle screen up after finish so the settle button is reachable
+  const isInBattle      = !!(currentBattle && (
+    currentBattle.status !== 'finished' || isPvpLobbyOpen
+  ));
   const isMyTurn        = !!(currentBattle && (
     (currentBattle.player1Id === userId && currentBattle.currentTurn === 'player1') ||
     (currentBattle.player2Id === userId && currentBattle.currentTurn === 'player2')
@@ -563,7 +616,42 @@ export default function BattleTab({ userId }: BattleTabProps) {
     store.addBattleLog(`⚔️ Your fighter: ${selectedFighter.name} (${selectedFighter.strength})`);
     store.addBattleLog(`🔥 Opponent: ${boss.name} (${boss.strength}) — counters your element!`);
   };
+  // Auto-start PvP battle when channel opens with two fighters locked in
+  const pvpAutoStarted = useRef(false);
+  useEffect(() => {
+    if (lobby.step !== 'open') { pvpAutoStarted.current = false; return; }
+    if (pvpAutoStarted.current) return;
+    if (isInBattle) return;
+    const myF   = lobby.myFighter   ?? selectedFighter;
+    const oppF  = lobby.opponentFighter;
+    if (!myF) return; // user never selected a fighter
+    pvpAutoStarted.current = true;
+    const opponent: Fighter = oppF ?? makeGymBoss(myF); // fallback to AI-boss if opponent fighter unknown
+    const battle = createBattle(userId, lobby.channel?.channelId ?? 'pvp', myF, opponent);
+    engineRef.current = new PrivacyBattleEngine(battle);
+    store.setBattle(battle);
+    store.setIsInBattle(true);
+    store.addBattleLog('⚔️ PvP battle started!');
+    store.addBattleLog(`🧙 You: ${myF.name} (${myF.strength})`);
+    store.addBattleLog(`👺 Opponent: ${opponent.name} (${opponent.strength})`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lobby.step, lobby.opponentFighter]);
 
+  const isPvpBattle = isPvpLobbyOpen;
+
+  const handleForfeit = () => {
+    if (!session) return;
+    const walletAddr = store.wallet.address ?? undefined;
+    lobby.settlePvpBattle({ request: wcRequest }, 'forfeit', walletAddr);
+    store.resetBattle(); store.setIsInBattle(false); engineRef.current = null;
+  };
+
+  const handleSettle = (outcome: 'win' | 'loss' | 'draw') => {
+    if (!session) return;
+    const walletAddr = store.wallet.address ?? undefined;
+    lobby.settlePvpBattle({ request: wcRequest }, outcome, walletAddr);
+    store.resetBattle(); store.setIsInBattle(false); engineRef.current = null;
+  };
   const handleSubmitMove = async () => {
     if (!selectedMove || !currentBattle || isSubmittingMove || !engineRef.current) return;
     setIsSubmittingMove(true);
@@ -581,8 +669,11 @@ export default function BattleTab({ userId }: BattleTabProps) {
       if (updatedBattle.status === 'finished') {
         const w = updatedBattle.winner;
         store.addBattleLog(w === 'draw' ? '⚖️ Draw!' : w === 'player1' ? '🏆 Victory!' : '💀 Defeat…');
-        store.setIsInBattle(false);
-        engineRef.current = null;
+        // For PvP battles, keep the screen up so the player can hit Settle
+        if (!isPvpBattle) {
+          store.setIsInBattle(false);
+          engineRef.current = null;
+        }
       }
       setSelectedMove(null);
     } finally {
@@ -599,8 +690,12 @@ export default function BattleTab({ userId }: BattleTabProps) {
 
   const isConnected = !!session;
 
-  // ── Active AI battle takes over the whole view ────────────────────────────
+  // ── Active battle: full-screen BattleInterface + PvP settle panel ─────────
   if (isInBattle && currentBattle) {
+    const battleDone   = currentBattle.status === 'finished';
+    const myWon        = battleDone && currentBattle.winner === 'player1';
+    const battOutcome: 'win'|'loss'|'draw' = !battleDone ? 'draw'
+      : currentBattle.winner === 'draw' ? 'draw' : myWon ? 'win' : 'loss';
     return (
       <div className="flex flex-col gap-3 p-3 h-full overflow-y-auto scrollbar-hide">
         <BattleInterface
@@ -611,9 +706,35 @@ export default function BattleTab({ userId }: BattleTabProps) {
           selectedMove={selectedMove}
           setSelectedMove={setSelectedMove}
           onSubmitMove={handleSubmitMove}
-          onLeaveBattle={handleLeaveBattle}
+          onLeaveBattle={isPvpBattle ? undefined : handleLeaveBattle}
           isSubmittingMove={isSubmittingMove}
         />
+
+        {/* PvP settle / forfeit panel */}
+        {isPvpBattle && (
+          <div className="glow-card p-2 space-y-1.5">
+            <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>State Channel</p>
+            {battleDone ? (
+              <button
+                onClick={() => handleSettle(battOutcome)}
+                className="w-full py-2 rounded-lg text-xs font-bold"
+                style={{ background: 'rgba(139,92,246,0.8)', color: '#fff', border: 'none' }}>
+                {battOutcome === 'win' ? '🏆 Settle — Claim Victory' : battOutcome === 'loss' ? '💀 Settle — Accept Defeat' : '⚖️ Settle — Draw'}
+              </button>
+            ) : (
+              <button
+                onClick={handleForfeit}
+                className="w-full py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: 'rgba(242,63,66,0.12)', border: '1px solid rgba(242,63,66,0.4)', color: '#f87171' }}>
+                🏳️ Forfeit &amp; Close Channel
+              </button>
+            )}
+            <p className="text-[9px] text-center" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              {battleDone ? 'This signs a settlement tx on Chia' : 'Forfeiting counts as a loss on-chain'}
+            </p>
+          </div>
+        )}
+
         {store.gui.battleLogs.length > 0 && (
           <div className="glow-card p-2">
             <div className="flex justify-between items-center mb-1.5">
@@ -737,7 +858,7 @@ interface BattleInterfaceProps {
   selectedMove:     MoveKind;
   setSelectedMove:  (move: MoveKind) => void;
   onSubmitMove:     () => void;
-  onLeaveBattle:    () => void;
+  onLeaveBattle:    (() => void) | undefined;
   isSubmittingMove: boolean;
 }
 
@@ -768,11 +889,13 @@ function BattleInterface({
             }}>
             {battle.status.toUpperCase()}
           </span>
-          <button onClick={onLeaveBattle}
-            className="px-2 py-0.5 rounded-full text-[10px]"
-            style={{ background: 'rgba(242,63,66,0.2)', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
-            Leave
-          </button>
+          {onLeaveBattle && (
+            <button onClick={onLeaveBattle}
+              className="px-2 py-0.5 rounded-full text-[10px]"
+              style={{ background: 'rgba(242,63,66,0.2)', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
+              Leave
+            </button>
+          )}
         </div>
       </div>
 

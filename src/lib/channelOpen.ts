@@ -569,3 +569,53 @@ export async function joinPvpChannel(
     updatedAt:     Date.now(),
   };
 }
+
+// ─── Channel settlement ───────────────────────────────────────────────────────
+
+/**
+ * Settle or forfeit an open state channel.
+ *
+ * Signs a REMARK coin spend recording the outcome, then broadcasts via
+ * chip0002_sendTransaction. Mirrors bow-app's handleClose().
+ *
+ * outcome: 'win' | 'loss' | 'draw' | 'forfeit'
+ * Returns the settlement transaction ID.
+ */
+export async function settleChannel(
+  session:       any,
+  channelId:     string,
+  outcome:       'win' | 'loss' | 'draw' | 'forfeit',
+  walletAddress?: string,
+): Promise<string> {
+  if (!session) throw new Error('[aWizard] settleChannel: no session');
+
+  const addrTag = (walletAddress ?? 'unknown').slice(0, 16);
+  const memo    = `BoW settle ${outcome} ${channelId.slice(0, 8)} ${addrTag}`;
+
+  const realCoin = await getSpendableCoin(session, BigInt(1));
+  const normalizedCoin = {
+    parent_coin_info: realCoin.coin.parent_coin_info.replace(/^0x/, ''),
+    puzzle_hash:      realCoin.coin.puzzle_hash.replace(/^0x/, ''),
+    amount:           Number(realCoin.coin.amount),
+  };
+
+  const solution  = buildStandardSolution(normalizedCoin.puzzle_hash, normalizedCoin.amount, memo);
+  const coinSpend = { coin: normalizedCoin, puzzle_reveal: realCoin.puzzle, solution };
+
+  const rawSig = await session.request({
+    method: 'chip0002_signCoinSpends',
+    params: { coinSpends: [coinSpend], partialSign: false },
+  });
+  const aggregated_signature: string = typeof rawSig === 'string' ? rawSig : rawSig?.aggregated_signature ?? rawSig;
+
+  const result: { status: string; error?: string; tx_id?: string } = await session.request({
+    method: 'chip0002_sendTransaction',
+    params: { spendBundle: { coin_spends: [coinSpend], aggregated_signature } },
+  });
+
+  if (result.status !== 'SUCCESS') {
+    throw new Error(`[aWizard] Settlement rejected: ${result.error ?? result.status}`);
+  }
+  console.log(`[aWizard] Channel ${channelId.slice(0, 8)} settled as ${outcome} — tx: ${result.tx_id}`);
+  return result.tx_id ?? 'unknown';
+}
