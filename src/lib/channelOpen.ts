@@ -217,12 +217,15 @@ function clvmList(...items: string[]): string {
 
 /**
  * Build a standard p2 coin solution in pure CLVM hex — no greenwebjs, no Buffer.
- * Solution shape: ((q . conditions_list) ())
- *   p2_delegated_puzzle_or_hidden_puzzle solution is a 2-element list:
- *     ( delegated_puzzle  solution_to_delegated_puzzle )
- *   delegated_puzzle          = (q . conditions)  → ff 01 <conditions>
- *   solution_to_delegated_puzzle = ()             → 80
- *   full solution hex         = ff (ff 01 <conditions>) ff 80 80
+ * Solution shape: (() (q . conditions_list) ())
+ *   p2_delegated_puzzle_or_hidden_puzzle solution is a 3-element list:
+ *     ( hidden_or_0  delegated_puzzle  solution_to_delegated )
+ *   hidden_or_0     = ()  → nil = use delegated puzzle path (not hidden)
+ *   delegated_puzzle = (q . conditions)  → ff 01 <conditions>
+ *   solution_to_delegated = ()           → 80
+ *
+ *   The delegated puzzle (q . conditions) when run with () returns conditions.
+ *   Greenwebjs ref: SExp.to([[], run(P2_CONDITIONS_PROGRAM, [conditions]), []])
  */
 function buildStandardSolution(
   senderPuzzleHashHex: string,
@@ -244,12 +247,12 @@ function buildStandardSolution(
   // Conditions list: ((1 memo) (51 ph amount))
   const conditions = clvmCons(remarkCond, clvmCons(createCond, '80'));
 
-  // Delegated puzzle: (q . conditions) — q opcode = atom 0x01
+  // Delegated puzzle: (q . conditions)
   const delegatedPuzzle = clvmCons('01', conditions);
 
-  // Full p2 solution: (delegated_puzzle ())
-  // = ( (q . conditions) . ( () . nil ) ) = ff <delegatedPuzzle> ff 80 80
-  const solution = clvmList(delegatedPuzzle, '80');
+  // Full p2 solution: (() delegated_puzzle ())
+  // = 3-element list: (nil (q . conditions) nil)
+  const solution = clvmList('80', delegatedPuzzle, '80');
 
   return '0x' + solution;
 }
