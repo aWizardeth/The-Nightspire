@@ -53,7 +53,7 @@ function NftImage({ src, alt, elColour, height }: { src: string | undefined; alt
     return (
       <div
         className="flex items-center justify-center text-2xl rounded-l-lg"
-        style={{ flex: 1, height, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
+        style={{ flex: 3, height, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -64,7 +64,7 @@ function NftImage({ src, alt, elColour, height }: { src: string | undefined; alt
       src={src}
       alt={alt}
       className="object-cover rounded-l-lg"
-      style={{ flex: 1, width: 0, height, borderRight: `1px solid ${elColour}30` }}
+        style={{ flex: 3, width: 0, height, borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -295,9 +295,9 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   <div className="flex" style={{ height: 240 }}>
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} height={240} />
 
-                    {/* Stats column — fixed 62px sliver */}
+                    {/* Stats column — flex:2 (~40% of card) */}
                     <div className="px-1 py-1.5 flex flex-col gap-1 flex-shrink-0"
-                      style={{ width: 62, background: 'rgba(0,0,0,0.28)' }}>
+                      style={{ flex: 2, background: 'rgba(0,0,0,0.28)' }}>
 
                       {/* Name */}
                       <p className="font-bold leading-tight"
