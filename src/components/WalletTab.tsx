@@ -52,8 +52,8 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
   if (!src || imgError) {
     return (
       <div
-        className="flex items-center justify-center text-lg rounded-l-lg flex-shrink-0"
-        style={{ width: 44, height: 44, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
+        className="flex items-center justify-center text-2xl rounded-l-lg flex-shrink-0"
+        style={{ width: 68, height: 100, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -64,7 +64,7 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
       src={src}
       alt={alt}
       className="object-cover rounded-l-lg flex-shrink-0"
-      style={{ width: 44, height: 44, borderRight: `1px solid ${elColour}30` }}
+      style={{ width: 68, height: 100, borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -270,7 +270,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
               </div>
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {nfts.map((nft) => {
               const f = nft.fighter!;
               const isSelected = selected?.name === f.name && selected?.strength === f.strength;
@@ -292,37 +292,37 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   }}
                 >
                   {/* Horizontal layout — image left, stats right */}
-                  <div className="flex items-stretch relative">
+                  <div className="flex items-stretch">
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
                     {/* Stats column */}
-                    <div className="flex-1 px-1 py-1 flex flex-col justify-between min-w-0"
-                      style={{ background: 'rgba(0,0,0,0.25)' }}>
-                      <div className="flex items-start justify-between gap-0.5">
-                        <p className="font-bold leading-tight"
-                          style={{ color: 'var(--text-color)', fontSize: '0.55rem', wordBreak: 'break-word' }}>{f.name}</p>
-                        {isSelected && <span className="flex-shrink-0" style={{ fontSize: 9 }}>✅</span>}
-                      </div>
+                    <div className="flex-1 px-1.5 py-1.5 flex flex-col gap-0.5 min-w-0"
+                      style={{ background: 'rgba(0,0,0,0.28)' }}>
+
+                      {/* Name */}
+                      <p className="font-bold leading-tight truncate"
+                        style={{ color: 'var(--text-color)', fontSize: '0.6rem' }}>{f.name}</p>
 
                       {/* Element badge */}
                       <span
                         className="inline-block px-1 py-0.5 rounded font-bold self-start"
-                        style={{ fontSize: '0.48rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                        style={{ fontSize: '0.5rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
                       >
                         {f.strength}
                       </span>
 
-                      {/* Core stats */}
-                      <div className="space-y-0">
-                        <div className="flex justify-between">
-                          <span style={{ fontSize: '0.5rem', color: '#4caf50' }}>❤{f.stats.hp}</span>
-                          <span style={{ fontSize: '0.5rem', color: '#ff6b35' }}>⚔{f.stats.atk}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span style={{ fontSize: '0.5rem', color: '#2196f3' }}>🛡{f.stats.def}</span>
-                          <span style={{ fontSize: '0.5rem', color: '#ffd600' }}>💨{f.stats.spd}</span>
-                        </div>
+                      {/* Stats — one per row */}
+                      <div className="flex flex-col gap-0.5 mt-0.5">
+                        <span style={{ fontSize: '0.52rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
+                        <span style={{ fontSize: '0.52rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
+                        <span style={{ fontSize: '0.52rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
+                        <span style={{ fontSize: '0.52rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
                       </div>
+
+                      {/* Selected indicator */}
+                      {isSelected && (
+                        <span className="mt-auto" style={{ fontSize: 10 }}>✅</span>
+                      )}
                     </div>
                   </div>
                 </button>
