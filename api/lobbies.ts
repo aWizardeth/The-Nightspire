@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── POST — register a new public lobby ──────────────────────────────────
   if (req.method === 'POST') {
-    const { code, hostId, hostName = 'Anonymous Wizard' } = req.body ?? {};
+    const { code, hostId, hostName = 'Anonymous Wizard', isPublic = false } = req.body ?? {};
     if (!code || typeof code !== 'string' || code.length !== 6) {
       return res.status(400).json({ error: 'Invalid lobby code' });
     }
@@ -113,8 +113,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       partyBReady: false,
     };
     await db.set(LOBBY_KEY(lobby.code), lobby, { ex: TTL_SECONDS });
-    await db.sadd(INDEX_KEY, lobby.code);
-    console.log(`[aWizard Lobbies] Registered public lobby ${lobby.code} by ${hostId}`);
+    // Only add to the public index if explicitly public — private lobbies are
+    // stored for the readiness handshake but won't appear in the lobby browser.
+    if (isPublic) await db.sadd(INDEX_KEY, lobby.code);
+    console.log(`[aWizard Lobbies] Registered ${isPublic ? 'public' : 'private'} lobby ${lobby.code} by ${hostId}`);
     return res.status(200).json({ ok: true });
   }
 

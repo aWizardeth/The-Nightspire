@@ -61,7 +61,11 @@ export function generateChannelId(partyA: string, partyB: string, gameType: stri
 
 /** 6-char alphanumeric invite code for PvP lobbies, easy to share in Discord chat. */
 export function generateInviteCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  // Use crypto.getRandomValues for an unpredictable code — Math.random() is
+  // a seeded PRNG and theoretically predictable given browser state.
+  const bytes = new Uint8Array(5);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 6).toUpperCase();
 }
 
 /**

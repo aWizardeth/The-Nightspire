@@ -108,13 +108,13 @@ export const useLobbyStore = create<LobbyStore>()(
         const code = generateInviteCode();
         console.log(`[aWizard] PvP lobby created (code: ${code}, public: ${isPublic})`);
         set({ step: 'pending', role: 'creator', inviteCode: code, isPublic, channel: null, errorMsg: null, lastSeen: Date.now() });
-        if (isPublic && hostId) {
-          fetch('/api/lobbies', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, hostId, hostName }),
-          }).catch((e) => console.warn('[aWizard] Could not register public lobby:', e));
-        }
+        // Always register in Redis so the readiness handshake works.
+        // Private lobbies are stored but not added to the public index.
+        fetch('/api/lobbies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, hostId: hostId || 'private', hostName, isPublic }),
+        }).catch((e) => console.warn('[aWizard] Could not register lobby in Redis:', e));
       },
 
       joinLobby: (inviteCode) => {
@@ -123,7 +123,7 @@ export const useLobbyStore = create<LobbyStore>()(
       },
 
       confirmReady: async (walletAddress, session, peerId) => {
-        const { role, inviteCode, isPublic } = get();
+        const { role, inviteCode } = get();
         set({ step: 'signing', errorMsg: null, lastSeen: Date.now() });
         try {
           if (role === 'creator') {
@@ -133,7 +133,7 @@ export const useLobbyStore = create<LobbyStore>()(
             set({ step: 'waiting_peer', channel, inviteCode: confirmedCode, lastSeen: Date.now() });
 
             // Mark partyA ready in Redis + start polling for partyB
-            if (isPublic && confirmedCode) {
+            if (confirmedCode) {
               await patchLobbyReady(confirmedCode, 'A');
               const initial = await fetchLobbyReadiness(confirmedCode);
               if (initial?.partyBReady) {
@@ -155,7 +155,7 @@ export const useLobbyStore = create<LobbyStore>()(
 
             // Mark partyB ready in Redis and check if partyA is already ready
             let bothReady = channel.status === 'locked';
-            if (isPublic && !bothReady) {
+            if (!bothReady) {
               const updated = await patchLobbyReady(inviteCode, 'B');
               bothReady = updated?.partyAReady === true;
             }
@@ -166,16 +166,14 @@ export const useLobbyStore = create<LobbyStore>()(
             } else {
               set({ step: 'broadcasting', channel, lastSeen: Date.now() });
               // Poll until creator (partyA) is also ready
-              if (isPublic) {
-                stopPeerPolling();
-                _peerPollTimer = setInterval(async () => {
-                  const lobby = await fetchLobbyReadiness(inviteCode);
-                  if (lobby?.partyAReady) {
-                    stopPeerPolling();
-                    set({ step: 'open', lastSeen: Date.now() });
-                  }
-                }, 3000);
-              }
+              stopPeerPolling();
+              _peerPollTimer = setInterval(async () => {
+                const lobby = await fetchLobbyReadiness(inviteCode);
+                if (lobby?.partyAReady) {
+                  stopPeerPolling();
+                  set({ step: 'open', lastSeen: Date.now() });
+                }
+              }, 3000);
             }
           }
         } catch (err) {
