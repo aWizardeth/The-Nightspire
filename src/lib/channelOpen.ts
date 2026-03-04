@@ -217,12 +217,12 @@ function clvmList(...items: string[]): string {
 
 /**
  * Build a standard p2 coin solution in pure CLVM hex — no greenwebjs, no Buffer.
- *  - REMARK condition (opcode 1) with `memo`
- *  - CREATE_COIN back to sender for `totalAmount` (net-zero spend)
- *
- * Solution shape: (delegated_puzzle . solution)
- *   delegated_puzzle = (q . conditions_list)  → ff 01 <conditions>
- *   solution         = ()                     → 80
+ * Solution shape: ((q . conditions_list) ())
+ *   p2_delegated_puzzle_or_hidden_puzzle solution is a 2-element list:
+ *     ( delegated_puzzle  solution_to_delegated_puzzle )
+ *   delegated_puzzle          = (q . conditions)  → ff 01 <conditions>
+ *   solution_to_delegated_puzzle = ()             → 80
+ *   full solution hex         = ff (ff 01 <conditions>) ff 80 80
  */
 function buildStandardSolution(
   senderPuzzleHashHex: string,
@@ -236,23 +236,20 @@ function buildStandardSolution(
   const memoHex   = Array.from(memoBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
   // REMARK condition: (1 memo) — opcode 0x01
-  const remarkOp    = '01'; // CLVM single-byte atom for integer 1
-  const remarkCond  = clvmList(remarkOp, clvmAtom(memoHex));
+  const remarkCond  = clvmList('01', clvmAtom(memoHex));
 
   // CREATE_COIN condition: (51 puzzle_hash amount) — opcode 0x33
-  const createOp    = '33'; // CLVM single-byte atom for integer 51
-  const amountAtom  = clvmInt(totalAmount);
-  const phAtom      = clvmAtom(ph);
-  const createCond  = clvmList(createOp, phAtom, amountAtom);
+  const createCond  = clvmList('33', clvmAtom(ph), clvmInt(totalAmount));
 
-  // Conditions list: (remark . (create_coin . nil))
+  // Conditions list: ((1 memo) (51 ph amount))
   const conditions = clvmCons(remarkCond, clvmCons(createCond, '80'));
 
-  // Delegated puzzle: (q . conditions) — q is opcode 1 in CLVM = atom 0x01
+  // Delegated puzzle: (q . conditions) — q opcode = atom 0x01
   const delegatedPuzzle = clvmCons('01', conditions);
 
-  // Solution: (delegated_puzzle . ())
-  const solution = clvmCons(delegatedPuzzle, '80');
+  // Full p2 solution: (delegated_puzzle ())
+  // = ( (q . conditions) . ( () . nil ) ) = ff <delegatedPuzzle> ff 80 80
+  const solution = clvmList(delegatedPuzzle, '80');
 
   return '0x' + solution;
 }
