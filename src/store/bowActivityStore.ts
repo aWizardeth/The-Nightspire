@@ -73,6 +73,7 @@ interface BowActivityStore {
   setNfts: (nfts: NFTData[]) => void;
   setSelectedFighter: (fighter: Fighter | null) => void;
   setSelectedNftId: (id: string | null) => void;
+  selectFighter: (fighter: Fighter, nftId: string) => void;
 
   // Shared battle state (synchronized)
   battle: BattleState | null;
@@ -150,6 +151,11 @@ export const useBowActivityStore = create<BowActivityStore>()(
       setSelectedNftId: (id) =>
         set((state) => ({
           wallet: { ...state.wallet, selectedNftId: id }
+        })),
+
+      selectFighter: (fighter, nftId) =>
+        set((state) => ({
+          wallet: { ...state.wallet, selectedFighter: fighter, selectedNftId: nftId }
         })),
 
       // Shared battle state

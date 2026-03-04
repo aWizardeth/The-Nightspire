@@ -191,7 +191,7 @@ export default function WalletTab({ userId }: WalletTabProps) {
           nfts={store.wallet.nfts}
           selected={store.wallet.selectedFighter}
           selectedNftId={store.wallet.selectedNftId}
-          onSelect={(f, nftId) => { store.setSelectedFighter(f); store.setSelectedNftId(nftId); }}
+          onSelect={(f, nftId) => store.selectFighter(f, nftId)}
           onLoad={loadNFTs}
           isLoading={isLoadingNfts}
           nftError={nftError}
