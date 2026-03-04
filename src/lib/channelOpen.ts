@@ -267,8 +267,8 @@ function buildStandardSolution(
  *   - Solution built in pure CLVM hex (no greenwebjs — browser-safe)
  *
  *   chip0002_signCoinSpends docs (xch-dev/sage):
- *     params: { coin_spends: CoinSpend[], partial: boolean, auto_submit: boolean }
- *     result: { spend_bundle: { coin_spends, aggregated_signature } }
+ *     params: { coinSpends: CoinSpend[], partialSign: boolean }
+ *     result: string  (aggregated BLS signature hex)
  */
 export async function requestFundingSignature(
   session:    any,
@@ -296,20 +296,24 @@ export async function requestFundingSignature(
     solution,
   };
 
-  const result: { spend_bundle: SpendBundle } | SpendBundle = await session.request({
+  // Sage returns the aggregated signature string (not a SpendBundle object)
+  const aggregatedSignature: string = await session.request({
     method: 'chip0002_signCoinSpends',
     params: {
-      coin_spends:  [coinSpend],
-      partial:      isPartial,
-      auto_submit:  false,
+      coinSpends:  [coinSpend],
+      partialSign: isPartial,
     },
   });
 
-  // Sage may return { spend_bundle: ... } or the SpendBundle directly
-  const bundle: SpendBundle = (result as { spend_bundle?: SpendBundle }).spend_bundle ?? (result as SpendBundle);
-  if (!bundle || !bundle.aggregated_signature) {
-    throw new Error(`[aWizard] signCoinSpends returned no spend_bundle — response: ${JSON.stringify(result)}`);
+  if (!aggregatedSignature || typeof aggregatedSignature !== 'string') {
+    throw new Error(`[aWizard] signCoinSpends returned unexpected response: ${JSON.stringify(aggregatedSignature)}`);
   }
+
+  // Assemble the SpendBundle from our coin spends + the returned signature
+  const bundle: SpendBundle = {
+    coin_spends:          [coinSpend],
+    aggregated_signature: aggregatedSignature,
+  };
 
   console.log(`[aWizard] Channel sign OK memo="${memo}" coin=${realCoin.coinName}`);
   return bundle;
@@ -320,7 +324,7 @@ export async function requestFundingSignature(
  * Mirrors bow-app's `sendTransaction(spendBundle)`.
  *
  *   chip0002_sendTransaction docs (xch-dev/sage):
- *     params: { spend_bundle: { coin_spends, aggregated_signature } }
+ *     params: { spendBundle: { coin_spends, aggregated_signature } }
  *     result: { status: 'SUCCESS' | ..., error?: string, tx_id?: string }
  */
 export async function sendFundingBundle(
@@ -331,7 +335,7 @@ export async function sendFundingBundle(
 
   const result: { status: string; error?: string; tx_id?: string } = await session.request({
     method: 'chip0002_sendTransaction',
-    params: { spend_bundle: bundle },
+    params: { spendBundle: bundle },
   });
 
   if (result.status !== 'SUCCESS') {

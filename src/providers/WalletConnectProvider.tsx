@@ -396,7 +396,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       chainId: chain,
       request: {
         method: 'chip0002_signCoinSpends',
-        params: { coinSpends, partial }
+        params: { coinSpends, partialSign: partial }
       }
     });
   }, [session]);
