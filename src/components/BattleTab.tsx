@@ -382,12 +382,13 @@ const EL_COLOURS: Record<string, string> = {
 // ─── Inline fighter portrait (image or emoji fallback) ───────────────────────
 function FighterPortrait({ src, size = 80, fill = false }: { src?: string; size?: number; fill?: boolean }) {
   const [err, setErr] = useState(false);
+  // fill=true: grow to consume remaining flex space in the parent column
   const style = fill
-    ? { width: '100%', height: size, background: 'rgba(0,0,0,0.3)' }
-    : { width: size,  height: size, background: 'rgba(0,0,0,0.3)' };
+    ? { width: '100%', flex: '1 1 0', minHeight: 0, background: 'rgba(0,0,0,0.3)' }
+    : { width: size, height: size, flexShrink: 0, background: 'rgba(0,0,0,0.3)' };
   if (!src || err) {
     return (
-      <div className="flex items-center justify-center rounded-lg text-4xl flex-shrink-0"
+      <div className="flex items-center justify-center rounded-lg text-4xl"
         style={{ ...style, background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)' }}>
         🧙
       </div>
@@ -395,7 +396,7 @@ function FighterPortrait({ src, size = 80, fill = false }: { src?: string; size?
   }
   return (
     <img src={src} alt="fighter" onError={() => setErr(true)}
-      className="rounded-lg object-contain flex-shrink-0"
+      className="rounded-lg object-contain"
       style={style} />
   );
 }
@@ -779,7 +780,7 @@ function BattleInterface({
       <div className="flex gap-2">
 
         {/* ── Player card (60%) ── */}
-        <div className="glow-card p-2 flex flex-col gap-1 flex-1" style={{ border: '2px solid var(--accent)' }}>
+        <div className="glow-card p-2 flex flex-col gap-1 flex-1" style={{ border: '2px solid var(--accent)', height: 220 }}>
           <p className="font-bold text-xs truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
           <div className="rounded-full h-2 overflow-hidden" style={{ background: 'rgba(74,222,128,0.2)' }}>
             <div className="h-full rounded-full transition-all duration-500"
