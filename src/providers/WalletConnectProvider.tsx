@@ -101,6 +101,12 @@ export interface WalletConnectContextValue {
   getAssetCoins: () => Promise<SpendableCoin[]>;
   /** chip0002_getNFTs — returns NFTs held by the wallet (with metadata) */
   getNFTs: () => Promise<WalletNft[]>;
+  /**
+   * Generic chip0002 request — accepts { method, params } and routes through
+   * the active SignClient session. Used by channelOpen.ts which expects
+   * a session-like object with a .request() method.
+   */
+  wcRequest: <T = unknown>(req: { method: string; params?: unknown }) => Promise<T>;
   isConnecting: boolean;
   /** true once SignClient has finished initializing */
   clientReady: boolean;
@@ -425,6 +431,17 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     });
   }, [session]);
 
+  const wcRequest = useCallback(async <T = unknown>({ method, params }: { method: string; params?: unknown }): Promise<T> => {
+    const client = clientRef.current;
+    if (!client || !session) throw new Error('[aWizard] No active WalletConnect session');
+    const chain = session.namespaces?.chia?.chains?.[0] ?? CHIA_CHAIN;
+    return client.request<T>({
+      topic:   session.topic,
+      chainId: chain,
+      request: { method, params },
+    });
+  }, [session]);
+
   const getNFTs = useCallback(async (): Promise<WalletNft[]> => {
     const client = clientRef.current;
     if (!client || !session) throw new Error('No active WalletConnect session');
@@ -482,6 +499,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       sendTransaction,
       getAssetCoins,
       getNFTs,
+      wcRequest,
       isConnecting,
       clientReady,
       error,

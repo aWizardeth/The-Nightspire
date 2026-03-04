@@ -70,6 +70,7 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
   const {
     session, walletAddress, fingerprint,
     connect, cancelConnect, pairingUri, isConnecting, clientReady,
+    wcRequest,
   } = useWalletConnect();
 
   const [joinCode, setJoinCode]           = useState('');
@@ -95,7 +96,10 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
 
   const handleConfirmReady = () => {
     if (!address) return;
-    lobby.confirmReady(address, session, userId);
+    // Pass a proxy with .request() instead of the raw SessionTypes.Struct,
+    // because channelOpen.ts calls session.request({ method, params }) —
+    // that method lives on SignClient, not on the session object itself.
+    lobby.confirmReady(address, { request: wcRequest }, userId);
   };
 
   const STEP_HEADER: Record<string, string> = {
