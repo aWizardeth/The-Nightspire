@@ -46,22 +46,14 @@ const ELEMENT_COLOURS: Record<string, string> = {
   Ice:         '#b3e5fc',
 };
 
-const RARITY_COLOURS: Record<string, string> = {
-  Common:    '#9e9e9e',
-  Uncommon:  '#4caf50',
-  Rare:      '#2196f3',
-  Epic:      '#9c27b0',
-  Legendary: '#ff9800',
-};
-
 // Small component so each card has its own imgError state inside .map()
 function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string; elColour: string }) {
   const [imgError, setImgError] = useState(false);
   if (!src || imgError) {
     return (
       <div
-        className="flex items-center justify-center text-3xl rounded-l-lg flex-shrink-0"
-        style={{ width: 80, height: 80, background: `${elColour}15`, borderRight: `2px solid ${elColour}30` }}
+        className="flex items-center justify-center text-lg rounded-l-lg flex-shrink-0"
+        style={{ width: 44, height: 44, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -72,7 +64,7 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
       src={src}
       alt={alt}
       className="object-cover rounded-l-lg flex-shrink-0"
-      style={{ width: 80, height: 80, borderRight: `2px solid ${elColour}30` }}
+      style={{ width: 44, height: 44, borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -278,12 +270,11 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
               </div>
             </div>
           )}
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {nfts.map((nft) => {
               const f = nft.fighter!;
               const isSelected = selected?.name === f.name && selected?.strength === f.strength;
               const elColour = ELEMENT_COLOURS[f.strength] ?? '#aaa';
-              const rarityColour = RARITY_COLOURS[f.rarity] ?? '#aaa';
               return (
                 <button
                   key={nft.id}
@@ -305,36 +296,32 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
                     {/* Stats column */}
-                    <div className="flex-1 p-2 space-y-1 min-w-0"
+                    <div className="flex-1 px-1 py-1 flex flex-col justify-between min-w-0"
                       style={{ background: 'rgba(0,0,0,0.25)' }}>
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="font-bold truncate"
-                          style={{ color: 'var(--text-color)', fontSize: '0.68rem', lineHeight: 1.2 }}>{f.name}</p>
-                        {isSelected && <span className="text-xs flex-shrink-0">✅</span>}
+                      <div className="flex items-start justify-between gap-0.5">
+                        <p className="font-bold leading-tight"
+                          style={{ color: 'var(--text-color)', fontSize: '0.55rem', wordBreak: 'break-word' }}>{f.name}</p>
+                        {isSelected && <span className="flex-shrink-0" style={{ fontSize: 9 }}>✅</span>}
                       </div>
 
-                      {/* Badges */}
-                      <div className="flex gap-1 flex-wrap">
-                        <span
-                          className="px-1 py-0.5 rounded font-bold"
-                          style={{ fontSize: '0.52rem', background: `${rarityColour}25`, color: rarityColour, border: `1px solid ${rarityColour}50` }}
-                        >
-                          {f.rarity}
-                        </span>
-                        <span
-                          className="px-1 py-0.5 rounded font-bold"
-                          style={{ fontSize: '0.52rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
-                        >
-                          {f.strength}
-                        </span>
-                      </div>
+                      {/* Element badge */}
+                      <span
+                        className="inline-block px-1 py-0.5 rounded font-bold self-start"
+                        style={{ fontSize: '0.48rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                      >
+                        {f.strength}
+                      </span>
 
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
-                        <span style={{ fontSize: '0.58rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
-                        <span style={{ fontSize: '0.58rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
-                        <span style={{ fontSize: '0.58rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
-                        <span style={{ fontSize: '0.58rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
+                      {/* Core stats */}
+                      <div className="space-y-0">
+                        <div className="flex justify-between">
+                          <span style={{ fontSize: '0.5rem', color: '#4caf50' }}>❤{f.stats.hp}</span>
+                          <span style={{ fontSize: '0.5rem', color: '#ff6b35' }}>⚔{f.stats.atk}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ fontSize: '0.5rem', color: '#2196f3' }}>🛡{f.stats.def}</span>
+                          <span style={{ fontSize: '0.5rem', color: '#ffd600' }}>💨{f.stats.spd}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
