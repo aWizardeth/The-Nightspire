@@ -295,13 +295,13 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   <div className="flex items-stretch">
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
-                    {/* Stats column */}
-                    <div className="flex-1 px-1.5 py-1.5 flex flex-col gap-0.5 min-w-0"
+                    {/* Stats column — shrinks to content width */}
+                    <div className="px-1.5 py-1.5 flex flex-col gap-0.5"
                       style={{ background: 'rgba(0,0,0,0.28)' }}>
 
                       {/* Name */}
-                      <p className="font-bold leading-tight truncate"
-                        style={{ color: 'var(--text-color)', fontSize: '0.6rem' }}>{f.name}</p>
+                      <p className="font-bold leading-tight"
+                        style={{ color: 'var(--text-color)', fontSize: '0.6rem', maxWidth: 56, wordBreak: 'break-word' }}>{f.name}</p>
 
                       {/* Element badge */}
                       <span
