@@ -300,7 +300,7 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
                 <button
                   key={nft.id}
                   onClick={() => handleSelect(f, nft.id)}
-                  className="rounded-lg text-left transition-all overflow-hidden w-full"
+                  className="rounded-lg text-left overflow-hidden w-full"
                   style={{
                     background: isSelected
                       ? `linear-gradient(180deg, rgba(0,217,255,0.12), rgba(0,217,255,0.04))`

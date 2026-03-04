@@ -232,8 +232,10 @@ export const useBowActivityStore = create<BowActivityStore>()(
       partialize: (state) => ({
         wallet: {
           ...state.wallet,
-          session: null, // Don't persist wallet session for security
-          pairingUri: null, // Don't persist pairing URI
+          session: null,        // Don't persist wallet session for security
+          pairingUri: null,     // Don't persist pairing URI
+          selectedFighter: null, // Reset selection on reload
+          selectedNftId: null,  // Reset selection on reload
         },
         gui: {
           ...state.gui,
