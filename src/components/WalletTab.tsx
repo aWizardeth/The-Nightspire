@@ -63,7 +63,7 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
     <img
       src={src}
       alt={alt}
-      className="object-cover rounded-l-lg"
+      className="object-contain rounded-l-lg"
       style={{ flex: 3, width: 0, height: '100%', borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
@@ -302,7 +302,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   }}
                 >
                   {/* Container height is the single control point — image fills 100% */}
-                  <div className="flex overflow-hidden" style={{ height: 240 }}>
+                  <div className="flex" style={{ height: 240 }}>
                     <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
 
                     {/* Stats column — flex:2 (~40% of card) */}
