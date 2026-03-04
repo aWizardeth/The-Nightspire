@@ -29,11 +29,10 @@ import {
 import type { ChellyzCard } from '../lib/chellyzCards';
 import type { TurnPhase } from '../lib/chellyzEngine';
 
-// ─── Card sizes (all zones now share a single row per player side) ──────────
-// Freed vertical space → cards are taller for bigger images
-const CARD_SM   = 'w-10 h-[92px]';
-const CARD_MD   = 'w-12 h-[106px]';
-const CARD_HAND = 'w-12 h-[88px]';
+// ─── Card sizes (+40% from previous iteration) ──────────────────────
+const CARD_SM   = 'w-14 h-[129px]';
+const CARD_MD   = 'w-[67px] h-[148px]';
+const CARD_HAND = 'w-[67px] h-[123px]';
 import useBowActivityStore from '../store/bowActivityStore';
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
@@ -544,32 +543,32 @@ function GameBoard() {
           <span className="text-[10px] text-zinc-400">KOs: {oppPlayer.kos}/4  |  Hand: {oppPlayer.hand.length}</span>
         </div>
 
-        {/* Opponent — single merged row: B0 B1 B2 | Support Active EB | DK EBDeck */}
-        <div className="flex items-end gap-1 justify-center">
-          {/* Bench */}
-          {oppPlayer.bench.map((card, i) => (
-            <CardSlot key={i} card={card} label={`B${i}`} size="sm" flipped />
-          ))}
-          {/* Divider */}
-          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
-          {/* Support */}
-          <CardSlot card={oppPlayer.support} label="Supp" size="sm" flipped />
-          {/* Active + HP bar */}
-          <div className="flex flex-col items-center">
-            <CardSlot card={oppPlayer.active} label="Active" />
-            {oppPlayer.active?.stats && (
-              <HPBar current={oppPlayer.active.currentHp ?? 0} max={oppPlayer.active.stats.maxHp} />
-            )}
+        {/* Opponent — bench left · zone centre · decks right */}
+        <div className="flex items-end justify-between gap-1 w-full px-1">
+          {/* Left: bench */}
+          <div className="flex items-end gap-1">
+            {oppPlayer.bench.map((card, i) => (
+              <CardSlot key={i} card={card} label={`B${i}`} size="sm" flipped />
+            ))}
           </div>
-          {/* EB energy inline */}
-          <div className="flex flex-col items-center justify-center" style={{ height: 92 }}>
-            <EnergyZone count={oppPlayer.energy.length} />
+          {/* Centre: support + active + EB */}
+          <div className="flex items-end gap-1">
+            <CardSlot card={oppPlayer.support} label="Supp" size="sm" flipped />
+            <div className="flex flex-col items-center">
+              <CardSlot card={oppPlayer.active} label="Active" />
+              {oppPlayer.active?.stats && (
+                <HPBar current={oppPlayer.active.currentHp ?? 0} max={oppPlayer.active.stats.maxHp} />
+              )}
+            </div>
+            <div className="flex flex-col items-center justify-center" style={{ height: 129 }}>
+              <EnergyZone count={oppPlayer.energy.length} />
+            </div>
           </div>
-          {/* Divider */}
-          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
-          {/* Decks */}
-          <DeckPile count={oppPlayer.deck.length} label="DK" />
-          <DeckPile count={oppPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
+          {/* Right: decks */}
+          <div className="flex items-end gap-1">
+            <DeckPile count={oppPlayer.deck.length} label="DK" />
+            <DeckPile count={oppPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
+          </div>
         </div>
       </div>
 
@@ -578,48 +577,44 @@ function GameBoard() {
 
       {/* === LOCAL PLAYER SIDE === */}
       <div className="flex flex-col gap-1 p-1.5 pt-0.5">
-        {/* Me — single merged row: B0 B1 B2 | Support Active EB | DK EBDeck */}
-        <div className="flex items-end gap-1 justify-center">
-          {/* Bench */}
-          {myPlayer.bench.map((card, i) => (
-            <CardSlot
-              key={i}
-              card={card}
-              label={`B${i}`}
-              size="sm"
-              highlight={phase === 'retreat' && card !== null}
-              onClick={() => card && handleFieldCardClick(card)}
-            />
-          ))}
-          {/* Divider */}
-          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
-          {/* Support */}
-          <CardSlot
-            card={myPlayer.support}
-            label="Supp"
-            size="sm"
-          />
-          {/* Active + HP bar */}
-          <div className="flex flex-col items-center">
-            <CardSlot
-              card={myPlayer.active}
-              label="Active"
-              highlight={phase === 'evolution' && !pendingEvo.targetId}
-              onClick={() => myPlayer.active && handleFieldCardClick(myPlayer.active)}
-            />
-            {myPlayer.active?.stats && (
-              <HPBar current={myPlayer.active.currentHp ?? 0} max={myPlayer.active.stats.maxHp} />
-            )}
+        {/* Me — bench left · zone centre · decks right */}
+        <div className="flex items-end justify-between gap-1 w-full px-1">
+          {/* Left: bench */}
+          <div className="flex items-end gap-1">
+            {myPlayer.bench.map((card, i) => (
+              <CardSlot
+                key={i}
+                card={card}
+                label={`B${i}`}
+                size="sm"
+                highlight={phase === 'retreat' && card !== null}
+                onClick={() => card && handleFieldCardClick(card)}
+              />
+            ))}
           </div>
-          {/* EB energy inline */}
-          <div className="flex flex-col items-center justify-center" style={{ height: 92 }}>
-            <EnergyZone count={myPlayer.energy.length} />
+          {/* Centre: support + active + EB */}
+          <div className="flex items-end gap-1">
+            <CardSlot card={myPlayer.support} label="Supp" size="sm" />
+            <div className="flex flex-col items-center">
+              <CardSlot
+                card={myPlayer.active}
+                label="Active"
+                highlight={phase === 'evolution' && !pendingEvo.targetId}
+                onClick={() => myPlayer.active && handleFieldCardClick(myPlayer.active)}
+              />
+              {myPlayer.active?.stats && (
+                <HPBar current={myPlayer.active.currentHp ?? 0} max={myPlayer.active.stats.maxHp} />
+              )}
+            </div>
+            <div className="flex flex-col items-center justify-center" style={{ height: 129 }}>
+              <EnergyZone count={myPlayer.energy.length} />
+            </div>
           </div>
-          {/* Divider */}
-          <div className="w-px self-stretch bg-purple-900/50 mx-0.5" />
-          {/* Decks */}
-          <DeckPile count={myPlayer.deck.length} label="DK" />
-          <DeckPile count={myPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
+          {/* Right: decks */}
+          <div className="flex items-end gap-1">
+            <DeckPile count={myPlayer.deck.length} label="DK" />
+            <DeckPile count={myPlayer.ebDeck.length} label="EB" color="bg-emerald-900/60" />
+          </div>
         </div>
 
         {/* Me info bar */}
