@@ -403,35 +403,39 @@ function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStart
         </span>
       </div>
 
-      {/* Fighter card */}
+      {/* Fighter card: image left, stats+moves right */}
       <div className="flex gap-3 rounded-lg p-2"
         style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${elColour}30` }}>
-        <FighterPortrait src={fighter.imageUri} size={88} fill />
-        <div className="flex flex-col gap-1 min-w-0">
+        <img
+          src={fighter.imageUri}
+          alt={fighter.name}
+          className="rounded-lg object-contain flex-shrink-0"
+          style={{ width: 90, height: 110, background: 'rgba(0,0,0,0.3)' }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
           <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text-color)' }}>{fighter.name}</p>
           <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold self-start"
             style={{ background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}>
             {fighter.strength}
           </span>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1" style={{ fontSize: '0.75rem' }}>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-0.5" style={{ fontSize: '0.72rem' }}>
             <span style={{ color: '#4caf50' }}>❤ {fighter.stats.hp}</span>
             <span style={{ color: '#ff6b35' }}>⚔ {fighter.stats.atk}</span>
             <span style={{ color: '#2196f3' }}>🛡 {fighter.stats.def}</span>
             <span style={{ color: '#ffd600' }}>💨 {fighter.stats.spd}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Available moves derived from fighter metadata */}
-      <div>
-        <p className="text-[10px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>⚡ Available Moves</p>
-        <div className="flex flex-wrap gap-1">
-          {moves.map((m) => (
-            <span key={m} className="px-2 py-0.5 rounded text-[10px] font-bold"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-color)' }}>
-              {MOVES[m].name}
-            </span>
-          ))}
+          <div className="mt-1">
+            <p className="text-[9px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>⚡ Moves</p>
+            <div className="flex flex-wrap gap-1">
+              {moves.map((m) => (
+                <span key={m} className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-color)' }}>
+                  {MOVES[m].name}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -742,80 +746,72 @@ function BattleInterface({
         </div>
       </div>
 
-      {/* HP bars */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Player card */}
-        <div className="glow-card p-2 flex flex-col gap-2" style={{ border: '2px solid var(--accent)' }}>
-          <FighterPortrait src={myFighter?.imageUri} size={120} fill />
-          <div>
-            <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
-            <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{myFighter?.rarity} · {myFighter?.strength}</p>
-            <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(74,222,128,0.2)' }}>
-              <div className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(0, (myHp / (myFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
-            </div>
-            <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
-              {Math.max(0, myHp)} / {myFighter?.stats.hp || 100} HP
-            </span>
+      {/* Fighter row: player (wider) | ai (narrower) */}
+      <div className="flex gap-2">
+
+        {/* ── Player card (65%) ── */}
+        <div className="glow-card p-2 flex flex-col gap-1 flex-1" style={{ border: '2px solid var(--accent)' }}>
+          {/* HP bar on top */}
+          <p className="font-bold text-xs truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
+          <div className="rounded-full h-2 overflow-hidden" style={{ background: 'rgba(74,222,128,0.2)' }}>
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(0, (myHp / (myFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
+          </div>
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--success)' }}>{Math.max(0, myHp)} / {myFighter?.stats.hp || 100} HP</span>
+          {/* Image + moves side by side */}
+          <div className="flex gap-2 mt-1">
+            <FighterPortrait src={myFighter?.imageUri} size={144} fill />
+            {/* Move buttons inline */}
+            {battle.status === 'commit' && isMyTurn ? (
+              <div className="flex flex-col gap-1 flex-1">
+                {availableMoves.map((move) => {
+                  if (!move) return null;
+                  const md = MOVES[move];
+                  return (
+                    <button key={move}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setSelectedMove(move)}
+                      className="rounded px-1 py-1 text-left w-full"
+                      style={{
+                        outline: 'none',
+                        background: selectedMove === move ? 'rgba(0,217,255,0.18)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${selectedMove === move ? 'rgba(0,217,255,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                        color: selectedMove === move ? '#00d9ff' : 'var(--text-color)',
+                        fontSize: '0.65rem',
+                        lineHeight: 1.3,
+                      }}>
+                      <div className="font-bold">{md.name}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>DMG {md.damage}</div>
+                    </button>
+                  );
+                })}
+                <button onClick={onSubmitMove} disabled={!selectedMove || isSubmittingMove}
+                  className="mt-auto rounded py-1 text-[10px] font-bold disabled:opacity-40"
+                  style={{ background: selectedMove ? 'linear-gradient(135deg,#00d9ff,#0099cc)' : 'rgba(60,60,60,0.5)', color: '#000', border: 'none' }}>
+                  {isSubmittingMove ? '⏳…' : '⚡ Attack'}
+                </button>
+              </div>
+            ) : battle.status === 'commit' && !isMyTurn ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[10px] text-center" style={{ color: 'var(--warning)' }}>⏳ Waiting…</p>
+              </div>
+            ) : null}
           </div>
         </div>
-        {/* Opponent card */}
-        <div className="glow-card p-2 flex flex-col gap-2" style={{ border: '2px solid var(--danger)' }}>
-          <FighterPortrait src={opponentFighter?.imageUri} size={120} fill />
-          <div>
-            <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'Opponent'}</p>
-            <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{opponentFighter?.rarity} · {opponentFighter?.strength}</p>
-            <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(242,63,66,0.2)' }}>
-              <div className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(0, (opponentHp / (opponentFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
-            </div>
-            <span className="text-xs font-semibold" style={{ color: 'var(--danger)' }}>
-              {Math.max(0, opponentHp)} / {opponentFighter?.stats.hp || 100} HP
-            </span>
+
+        {/* ── AI card (35%) ── */}
+        <div className="glow-card p-2 flex flex-col gap-1" style={{ border: '2px solid var(--danger)', width: '35%', flexShrink: 0 }}>
+          <p className="font-bold text-xs truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'AI'}</p>
+          <div className="rounded-full h-2 overflow-hidden" style={{ background: 'rgba(242,63,66,0.2)' }}>
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(0, (opponentHp / (opponentFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
           </div>
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--danger)' }}>{Math.max(0, opponentHp)} HP</span>
+          <FighterPortrait src={opponentFighter?.imageUri} size={144} fill />
         </div>
+
       </div>
 
-      {/* Move selection */}
-      {battle.status === 'commit' && isMyTurn && (
-        <div className="glow-card p-3">
-          <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-color)' }}>🎯 Choose Your Move</h3>
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {availableMoves.map((move) => {
-              if (!move) return null;
-              const md = MOVES[move];
-              return (
-                <button key={move} onClick={() => setSelectedMove(move)}
-                  className="p-2 rounded-lg transition-all text-left"
-                  style={{
-                    background: selectedMove === move ? 'var(--sel-fill)' : 'var(--bg-deep)',
-                    color:      selectedMove === move ? 'var(--sel-text)' : 'var(--text-color)',
-                    border:     `2px solid ${selectedMove === move ? 'var(--accent)' : 'var(--border-color)'}`,
-                  }}>
-                  <div className="text-xs font-semibold">{md.name}</div>
-                  <div className="text-[10px] opacity-60">{md.element} · DMG {md.damage}</div>
-                </button>
-              );
-            })}
-          </div>
-          {selectedMove && (
-            <div className="rounded p-2 mb-2.5 text-xs" style={{ background: 'var(--bg-deep)', border: '1px solid var(--border-color)' }}>
-              <p className="font-semibold" style={{ color: 'var(--text-color)' }}>{MOVES[selectedMove].name}</p>
-              <p style={{ color: 'var(--text-muted)' }}>{MOVES[selectedMove].description}</p>
-            </div>
-          )}
-          <button onClick={onSubmitMove} disabled={!selectedMove || isSubmittingMove}
-            className="glow-btn w-full disabled:opacity-40">
-            {isSubmittingMove ? '⏳ Submitting…' : '⚡ Submit Move'}
-          </button>
-        </div>
-      )}
-
-      {battle.status === 'commit' && !isMyTurn && (
-        <div className="glow-card p-3 text-center">
-          <p className="text-sm font-semibold" style={{ color: 'var(--warning)' }}>⏳ Waiting for opponent's move…</p>
-        </div>
-      )}
     </div>
   );
 }
