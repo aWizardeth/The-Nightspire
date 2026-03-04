@@ -300,6 +300,7 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
                 <button
                   key={nft.id}
                   onClick={() => handleSelect(f, nft.id)}
+                  onMouseDown={(e) => e.preventDefault()}
                   className="rounded-lg text-left overflow-hidden w-full"
                   style={{
                     outline: 'none',
@@ -308,8 +309,8 @@ function FighterSelector({ nfts, selected, selectedNftId, onSelect, onLoad, isLo
                       : 'rgba(255,255,255,0.03)',
                     border: isSelected
                       ? '2px solid rgba(0,217,255,0.7)'
-                      : `2px solid ${elColour}30`,
-                    boxShadow: isSelected ? `0 0 18px rgba(0,217,255,0.3)` : `0 0 8px ${elColour}18`,
+                      : '2px solid rgba(255,255,255,0.07)',
+                    boxShadow: isSelected ? '0 0 18px rgba(0,217,255,0.3)' : 'none',
                     cursor: 'pointer',
                   }}
                 >
