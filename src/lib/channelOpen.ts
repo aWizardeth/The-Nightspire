@@ -290,8 +290,14 @@ export async function requestFundingSignature(
     memo,
   );
 
+  // Sage returns amount as a string from getAssetCoins but expects a number in signCoinSpends
+  const normalizedCoin = {
+    ...realCoin.coin,
+    amount: Number(realCoin.coin.amount),
+  };
+
   const coinSpend: CoinSpend = {
-    coin:          realCoin.coin,
+    coin:          normalizedCoin as unknown as CoinInfo,
     puzzle_reveal: realCoin.puzzle,
     solution,
   };
