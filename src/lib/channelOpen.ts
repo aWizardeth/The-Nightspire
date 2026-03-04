@@ -25,9 +25,8 @@
 import type {
   StateChannel, ChannelKeys, CoinInfo, SpendBundle, CoinSpend, BondType,
 } from './stateChannel';
-// NOTE: greenwebjs is loaded lazily inside buildStandardSolution() to avoid
-// crashing the module on load — @chiamine/bls-signatures uses Node.js
-// built-ins (fs, path) that trigger errors in the Discord iframe environment.
+// NOTE: CLVM solution encoding is done in pure hex — no greenwebjs, no Node.js
+// Buffer — safe to run inside the Discord Activity iframe (browser-only).
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -171,51 +170,91 @@ export function createPendingChannel(
 }
 // ─── CLVM helpers (ported from bow-app/app/channel/page.tsx) ─────────────────────────
 
-/** CLVM atom-length prefix for N bytes (for REMARK condition encoding) */
+/**
+ * Pure-hex CLVM encoding helpers — no greenwebjs, no Node.js Buffer.
+ * Safe to run in the Discord Activity iframe (browser-only environment).
+ */
+
+/** Encode a byte-length as a CLVM atom-size prefix. */
 function clvmAtomPrefix(len: number): string {
-  if (len === 0) return '80';           // nil
+  if (len === 0) return '80';
   if (len <= 0x3f) return (0x80 | len).toString(16).padStart(2, '0');
   if (len <= 0x1fff) {
-    const hi = 0xc0 | (len >> 8);
-    const lo = len & 0xff;
-    return hi.toString(16).padStart(2, '0') + lo.toString(16).padStart(2, '0');
+    return (0xc0 | (len >> 8)).toString(16).padStart(2, '0') +
+           (len & 0xff).toString(16).padStart(2, '0');
   }
-  throw new Error(`[aWizard] Memo too large for CLVM atom: ${len}`);
+  throw new Error(`[aWizard] CLVM atom too large: ${len}`);
+}
+
+/** Wrap raw hex bytes as a CLVM atom. */
+function clvmAtom(hex: string): string {
+  const len = hex.length / 2;
+  if (len === 0) return '80';
+  return clvmAtomPrefix(len) + hex;
+}
+
+/** Encode a non-negative integer as a minimal big-endian CLVM integer atom. */
+function clvmInt(value: number | bigint): string {
+  const n = BigInt(value);
+  if (n === 0n) return '80'; // nil / zero
+  const bytes: number[] = [];
+  let v = n;
+  while (v > 0n) { bytes.unshift(Number(v & 0xffn)); v >>= 8n; }
+  // CLVM integers are signed — prepend 0x00 if high bit set (keeps it positive)
+  if (bytes[0] & 0x80) bytes.unshift(0x00);
+  return clvmAtomPrefix(bytes.length) + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** CLVM cons pair: ff <left> <right>. */
+function clvmCons(left: string, right: string): string {
+  return 'ff' + left + right;
+}
+
+/** Build a CLVM list from items: (a . (b . (c . nil))). */
+function clvmList(...items: string[]): string {
+  return items.reduceRight((acc, item) => clvmCons(item, acc), '80');
 }
 
 /**
- * Build a standard p2 coin solution using greenwebjs (loaded lazily):
- *  - REMARK condition with `memo`
+ * Build a standard p2 coin solution in pure CLVM hex — no greenwebjs, no Buffer.
+ *  - REMARK condition (opcode 1) with `memo`
  *  - CREATE_COIN back to sender for `totalAmount` (net-zero spend)
- * Returns 0x-prefixed CLVM hex.
  *
- * Mirrors bow-app/app/channel/page.tsx `buildStandardSolution`.
+ * Solution shape: (delegated_puzzle . solution)
+ *   delegated_puzzle = (q . conditions_list)  → ff 01 <conditions>
+ *   solution         = ()                     → 80
  */
-async function buildStandardSolution(
+function buildStandardSolution(
   senderPuzzleHashHex: string,
   totalAmount: number,
   memo: string,
-): Promise<string> {
-  // Lazy import so greenwebjs never runs at module-init time in the browser
-  const GreenWeb = await import('greenwebjs');
-
+): string {
   const ph = senderPuzzleHashHex.replace(/^0x/, '');
 
-  // Encode memo as hex (truncate to 63 chars to stay within CLVM atom limits)
-  const memoBytes  = new TextEncoder().encode(memo.slice(0, 63));
-  const memoHex    = Array.from(memoBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  // Encode memo bytes → hex (truncate to 63 bytes to stay within CLVM limits)
+  const memoBytes = new TextEncoder().encode(memo.slice(0, 63));
+  const memoHex   = Array.from(memoBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
-  // REMARK condition: (1 memo_bytes) — ff 01 ff <atom> 80
-  const atomPrefix = clvmAtomPrefix(memoBytes.length);
-  const remarkHex  = 'ff01ff' + atomPrefix + memoHex + '80';
-  const remarkCond = GreenWeb.util.sexp.fromHex(remarkHex);
+  // REMARK condition: (1 memo) — opcode 0x01
+  const remarkOp    = '01'; // CLVM single-byte atom for integer 1
+  const remarkCond  = clvmList(remarkOp, clvmAtom(memoHex));
 
-  // CREATE_COIN condition: (51 puzzle_hash amount)
-  const createCoinCond = GreenWeb.spend.createCoinCondition(ph, totalAmount);
+  // CREATE_COIN condition: (51 puzzle_hash amount) — opcode 0x33
+  const createOp    = '33'; // CLVM single-byte atom for integer 51
+  const amountAtom  = clvmInt(totalAmount);
+  const phAtom      = clvmAtom(ph);
+  const createCond  = clvmList(createOp, phAtom, amountAtom);
 
-  // Build solution: ((q . conditions) ())
-  const solution = GreenWeb.util.sexp.standardCoinSolution([remarkCond, createCoinCond]);
-  return '0x' + GreenWeb.util.sexp.toHex(solution);
+  // Conditions list: (remark . (create_coin . nil))
+  const conditions = clvmCons(remarkCond, clvmCons(createCond, '80'));
+
+  // Delegated puzzle: (q . conditions) — q is opcode 1 in CLVM = atom 0x01
+  const delegatedPuzzle = clvmCons('01', conditions);
+
+  // Solution: (delegated_puzzle . ())
+  const solution = clvmCons(delegatedPuzzle, '80');
+
+  return '0x' + solution;
 }
 // ─── WalletConnect signing ────────────────────────────────────────────────────
 
@@ -225,7 +264,7 @@ async function buildStandardSolution(
  * Mirrors bow-app/app/channel/page.tsx `handleFund`:
  *   - Uses the real coin + puzzle returned by getSpendableCoin()
  *   - Net-zero spend: CREATE_COIN back to self + REMARK memo to mark channel open
- *   - Solution built with greenwebjs (REMARK + CREATE_COIN conditions)
+ *   - Solution built in pure CLVM hex (no greenwebjs — browser-safe)
  *
  *   chip0002_signCoinSpends docs (xch-dev/sage):
  *     params: { coin_spends: CoinSpend[], partial: boolean, auto_submit: boolean }
@@ -244,8 +283,8 @@ export async function requestFundingSignature(
   const addrTag   = channel.partyAWallet.slice(0, 16);
   const memo      = `BoW open ${channel.bondType} ${addrTag}`;
 
-  // Build real p2 standard solution: REMARK + CREATE_COIN back to self
-  const solution = await buildStandardSolution(
+  // Build p2 standard solution: REMARK + CREATE_COIN back to self (pure-hex, no greenwebjs)
+  const solution = buildStandardSolution(
     realCoin.coin.puzzle_hash,
     Number(realCoin.coin.amount),
     memo,
