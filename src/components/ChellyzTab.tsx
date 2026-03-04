@@ -30,9 +30,9 @@ import type { ChellyzCard } from '../lib/chellyzCards';
 import type { TurnPhase } from '../lib/chellyzEngine';
 
 // ─── Card sizes (+40% from previous iteration) ──────────────────────
-const CARD_SM   = 'w-14 h-[129px]';
-const CARD_MD   = 'w-[67px] h-[148px]';
-const CARD_HAND = 'w-[67px] h-[123px]';
+const CARD_SM   = 'w-[67px] h-[129px]';
+const CARD_MD   = 'w-[80px] h-[148px]';
+const CARD_HAND = 'w-[80px] h-[123px]';
 import useBowActivityStore from '../store/bowActivityStore';
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
@@ -119,9 +119,9 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
             )}
             {/* Stats strip on right */}
             <div className="flex flex-col justify-end p-0.5 flex-1 min-w-0 overflow-hidden">
-              <p className="text-[6px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word', hyphens: 'auto' }}>{card.name}</p>
-              {card.stats && (
-                <p className="text-[6px] text-zinc-200 leading-tight">❤{card.currentHp}/{card.stats.maxHp}</p>
+              <p className="text-[7px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word', hyphens: 'auto' }}>{card.name}</p>
+            {card.stats && (
+                <p className="text-[7px] text-zinc-200 leading-tight">❤{card.currentHp}/{card.stats.maxHp}</p>
               )}
             </div>
           </>
@@ -662,9 +662,9 @@ function GameBoard() {
               )}
               {/* Stats strip */}
               <div className="flex flex-col justify-end p-0.5 flex-1 min-w-0 overflow-hidden">
-                <p className="text-[6px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word' }}>{card.name}</p>
-                <p className="text-[6px] text-zinc-300 leading-tight">{card.element}</p>
-                {card.stats && <p className="text-[6px] text-zinc-200 leading-tight">❤{card.stats.hp}</p>}
+                <p className="text-[7px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word' }}>{card.name}</p>
+                <p className="text-[7px] text-zinc-300 leading-tight">{card.element}</p>
+                {card.stats && <p className="text-[7px] text-zinc-200 leading-tight">❤{card.stats.hp}</p>}
               </div>
             </button>
           );
@@ -691,7 +691,7 @@ function GameBoard() {
       </div>{/* end board column */}
 
       {/* Log column — slim right sidebar */}
-      <div className="flex flex-col border-l border-zinc-800 overflow-hidden shrink-0" style={{ width: 64 }}>
+      <div className="flex flex-col border-l border-zinc-800 overflow-hidden shrink-0" style={{ width: 128 }}>
         <p className="text-[8px] text-zinc-500 uppercase tracking-wide px-1.5 pt-1 pb-0.5 shrink-0">📜 Log</p>
         <div
           ref={logRef}
