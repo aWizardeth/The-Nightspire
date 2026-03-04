@@ -93,8 +93,8 @@ export function buildPlaceholderKeys(partyA: string, partyB: string): ChannelKey
 /**
  * Fetch a spendable XCH coin from the connected Sage wallet via WalletConnect.
  *
- * chip0002_getAssetCoins docs:
- *   params: { asset_id: null, type: 'XCH', ... }
+ * chip0002_getAssetCoins docs (Sage/xch-dev):
+ *   params: { type: null, assetId: null, includedLocked: false }  ← XCH coins
  *   result: [{ coin: { parent_coin_info, puzzle_hash, amount }, puzzle, coinName, locked }]
  */
 export async function getSpendableCoin(
@@ -106,7 +106,7 @@ export async function getSpendableCoin(
   const coins: Array<{ coin: { parent_coin_info: string; puzzle_hash: string; amount: number }; puzzle: string; coinName: string; locked: boolean }> =
     await session.request({
       method: 'chip0002_getAssetCoins',
-      params: { asset_id: null, type: 'XCH', include_locked: false },
+      params: { type: null, assetId: null, includedLocked: false },
     });
 
   const found = coins.find(

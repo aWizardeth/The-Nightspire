@@ -426,7 +426,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       chainId: chain,
       request: {
         method: 'chip0002_getAssetCoins',
-        params: { type: 'xch', includeSpent: false }
+        params: { type: null, assetId: null, includedLocked: false },
       }
     });
   }, [session]);
