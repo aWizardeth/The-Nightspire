@@ -47,13 +47,13 @@ const ELEMENT_COLOURS: Record<string, string> = {
 };
 
 // Small component so each card has its own imgError state inside .map()
-function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string; elColour: string }) {
+function NftImage({ src, alt, elColour, height }: { src: string | undefined; alt: string; elColour: string; height: number }) {
   const [imgError, setImgError] = useState(false);
   if (!src || imgError) {
     return (
       <div
-        className="flex items-center justify-center text-2xl rounded-l-lg flex-shrink-0"
-        style={{ width: 68, height: 200, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
+        className="flex items-center justify-center text-2xl rounded-l-lg"
+        style={{ flex: 1, height, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -63,8 +63,8 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
     <img
       src={src}
       alt={alt}
-      className="object-cover rounded-l-lg flex-shrink-0"
-      style={{ width: 68, height: 200, borderRight: `1px solid ${elColour}30` }}
+      className="object-cover rounded-l-lg"
+      style={{ flex: 1, width: 0, height, borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -291,17 +291,17 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                     cursor: 'pointer',
                   }}
                 >
-                  {/* Horizontal layout — image left, stats right */}
-                  <div className="flex items-stretch">
-                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} />
+                  {/* Horizontal layout — image fills card, stats sliver on right */}
+                  <div className="flex" style={{ height: 200 }}>
+                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} height={200} />
 
-                    {/* Stats column — shrinks to content width */}
-                    <div className="px-1.5 py-1.5 flex flex-col gap-0.5"
-                      style={{ background: 'rgba(0,0,0,0.28)' }}>
+                    {/* Stats column — fixed 42px sliver */}
+                    <div className="px-1 py-1.5 flex flex-col gap-0.5 flex-shrink-0"
+                      style={{ width: 42, background: 'rgba(0,0,0,0.28)' }}>
 
                       {/* Name */}
                       <p className="font-bold leading-tight"
-                        style={{ color: 'var(--text-color)', fontSize: '0.6rem', maxWidth: 56, wordBreak: 'break-word' }}>{f.name}</p>
+                        style={{ color: 'var(--text-color)', fontSize: '0.6rem', wordBreak: 'break-word' }}>{f.name}</p>
 
                       {/* Element badge */}
                       <span
