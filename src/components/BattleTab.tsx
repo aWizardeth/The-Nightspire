@@ -547,7 +547,7 @@ export default function BattleTab({ userId }: BattleTabProps) {
 
   // ── Arena home ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-3 p-3 h-full overflow-y-auto scrollbar-hide">
+    <div className="flex flex-col gap-3 p-3 h-full overflow-y-auto scrollbar-hide" style={{ zoom: 1.15 }}>
 
       <div>
         <h2 className="font-bold text-sm" style={{ color: 'var(--text-color)' }}>⚔️ Battle Arena</h2>

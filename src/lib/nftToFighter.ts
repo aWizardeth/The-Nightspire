@@ -108,8 +108,9 @@ function scaleStat(aps: number, base: number, range: number): number {
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
 export function nftToFighterData(nft: WalletNft, index: number): NFTData {
-  // chia_getNfts uses launcherId as the primary NFT identifier (some Sage versions use nftId)
-  const id = nft.launcherId ?? nft.nftId ?? nft.coinId ?? `nft-${index}`;
+  // chia_getNfts uses launcherId as the primary NFT identifier (some Sage versions use nftId).
+  // Use || (not ??) so empty strings "" fall through to the next candidate.
+  const id = nft.launcherId || nft.nftId || nft.coinId || `nft-${index}`;
   const displayName = (nft.name as string | undefined) ?? `Wizard #${index + 1}`;
 
   // ── Approved-collection fast path ──────────────────────────────
