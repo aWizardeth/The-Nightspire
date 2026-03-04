@@ -53,7 +53,7 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
     return (
       <div
         className="flex items-center justify-center text-2xl rounded-l-lg flex-shrink-0"
-        style={{ width: 68, height: 100, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
+        style={{ width: 68, height: 200, background: `${elColour}15`, borderRight: `1px solid ${elColour}30` }}
       >
         🧙
       </div>
@@ -64,7 +64,7 @@ function NftImage({ src, alt, elColour }: { src: string | undefined; alt: string
       src={src}
       alt={alt}
       className="object-cover rounded-l-lg flex-shrink-0"
-      style={{ width: 68, height: 100, borderRight: `1px solid ${elColour}30` }}
+      style={{ width: 68, height: 200, borderRight: `1px solid ${elColour}30` }}
       onError={() => setImgError(true)}
     />
   );
@@ -270,7 +270,7 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
               </div>
             </div>
           )}
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {nfts.map((nft) => {
               const f = nft.fighter!;
               const isSelected = selected?.name === f.name && selected?.strength === f.strength;
