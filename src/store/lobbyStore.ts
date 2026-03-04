@@ -21,6 +21,30 @@ import { persist } from 'zustand/middleware';
 import type { StateChannel } from '../lib/stateChannel';
 import { createPvpChannel, joinPvpChannel, generateInviteCode } from '../lib/channelOpen';
 
+// ─── Peer-readiness polling (module-level, outside Zustand) ───────────────────
+let _peerPollTimer: ReturnType<typeof setInterval> | null = null;
+function stopPeerPolling() {
+  if (_peerPollTimer !== null) { clearInterval(_peerPollTimer); _peerPollTimer = null; }
+}
+async function fetchLobbyReadiness(code: string): Promise<{ partyAReady: boolean; partyBReady: boolean } | null> {
+  try {
+    const r = await fetch(`/api/lobbies?code=${code}`);
+    const { lobby } = await r.json();
+    return lobby ?? null;
+  } catch { return null; }
+}
+async function patchLobbyReady(code: string, party: 'A' | 'B'): Promise<{ partyAReady: boolean; partyBReady: boolean } | null> {
+  try {
+    const r = await fetch('/api/lobbies', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, [party === 'A' ? 'partyAReady' : 'partyBReady']: true }),
+    });
+    const { lobby } = await r.json();
+    return lobby ?? null;
+  } catch { return null; }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type LobbyStep =
@@ -99,7 +123,7 @@ export const useLobbyStore = create<LobbyStore>()(
       },
 
       confirmReady: async (walletAddress, session, peerId) => {
-        const { role, inviteCode } = get();
+        const { role, inviteCode, isPublic } = get();
         set({ step: 'signing', errorMsg: null, lastSeen: Date.now() });
         try {
           if (role === 'creator') {
@@ -107,14 +131,52 @@ export const useLobbyStore = create<LobbyStore>()(
               walletAddress, session, peerId, undefined, inviteCode ?? undefined,
             );
             set({ step: 'waiting_peer', channel, inviteCode: confirmedCode, lastSeen: Date.now() });
+
+            // Mark partyA ready in Redis + start polling for partyB
+            if (isPublic && confirmedCode) {
+              await patchLobbyReady(confirmedCode, 'A');
+              const initial = await fetchLobbyReadiness(confirmedCode);
+              if (initial?.partyBReady) {
+                set({ step: 'open', lastSeen: Date.now() });
+              } else {
+                stopPeerPolling();
+                _peerPollTimer = setInterval(async () => {
+                  const lobby = await fetchLobbyReadiness(confirmedCode);
+                  if (lobby?.partyBReady) {
+                    stopPeerPolling();
+                    set({ step: 'open', lastSeen: Date.now() });
+                  }
+                }, 3000);
+              }
+            }
           } else {
             if (!inviteCode) throw new Error('No invite code — rejoin the lobby');
             const channel = await joinPvpChannel(inviteCode, walletAddress, session, peerId);
-            set({
-              step:     channel.status === 'locked' ? 'open' : 'broadcasting',
-              channel,
-              lastSeen: Date.now(),
-            });
+
+            // Mark partyB ready in Redis and check if partyA is already ready
+            let bothReady = channel.status === 'locked';
+            if (isPublic && !bothReady) {
+              const updated = await patchLobbyReady(inviteCode, 'B');
+              bothReady = updated?.partyAReady === true;
+            }
+
+            if (bothReady) {
+              stopPeerPolling();
+              set({ step: 'open', channel, lastSeen: Date.now() });
+            } else {
+              set({ step: 'broadcasting', channel, lastSeen: Date.now() });
+              // Poll until creator (partyA) is also ready
+              if (isPublic) {
+                stopPeerPolling();
+                _peerPollTimer = setInterval(async () => {
+                  const lobby = await fetchLobbyReadiness(inviteCode);
+                  if (lobby?.partyAReady) {
+                    stopPeerPolling();
+                    set({ step: 'open', lastSeen: Date.now() });
+                  }
+                }, 3000);
+              }
+            }
           }
         } catch (err) {
           // WalletConnect rejection arrives as a plain object { code, message },
@@ -135,6 +197,7 @@ export const useLobbyStore = create<LobbyStore>()(
       },
 
       exitLobby: () => {
+        stopPeerPolling();
         const { inviteCode, isPublic } = get();
         if (isPublic && inviteCode) {
           fetch(`/api/lobbies?code=${inviteCode}`, { method: 'DELETE' })
@@ -142,7 +205,7 @@ export const useLobbyStore = create<LobbyStore>()(
         }
         set({ step: 'idle', role: null, channel: null, inviteCode: null, isPublic: false, errorMsg: null, lastSeen: null });
       },
-      reset: () => set({ step: 'idle', role: null, channel: null, inviteCode: null, isPublic: false, errorMsg: null, lastSeen: null }),
+      reset: () => { stopPeerPolling(); set({ step: 'idle', role: null, channel: null, inviteCode: null, isPublic: false, errorMsg: null, lastSeen: null }); },
     }),
     {
       name: 'bow-lobby-v1',

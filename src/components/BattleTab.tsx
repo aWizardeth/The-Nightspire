@@ -320,7 +320,7 @@ function PvpLobbyPanel({ userId, reconnected }: { userId: string; reconnected: b
         <div className="flex items-center gap-2 py-1">
           <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-400 border-t-transparent animate-spin flex-shrink-0" />
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {lobby.step === 'signing' ? 'Waiting for Sage wallet approval…' : 'Broadcasting to Chia network…'}
+            {lobby.step === 'signing' ? 'Waiting for Sage wallet approval…' : 'Signed! Waiting for opponent to confirm…'}
           </span>
         </div>
       )}

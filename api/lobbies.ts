@@ -11,9 +11,11 @@ import { Redis } from '@upstash/redis';
  * Fully serverless-safe — survives cold starts and shared across all
  * Vercel function instances. Ready for multi-relay federation.
  *
- * GET  /api/lobbies          → { lobbies: PublicLobby[] }
- * POST /api/lobbies          → { ok: true }  body: { code, hostId, hostName? }
- * DELETE /api/lobbies?code=  → { ok: true }
+ * GET    /api/lobbies             → { lobbies: PublicLobby[] }
+ * GET    /api/lobbies?code=XXXX   → { lobby: PublicLobby | null }
+ * POST   /api/lobbies             → { ok: true }  body: { code, hostId, hostName? }
+ * PATCH  /api/lobbies             → { ok: true }  body: { code, partyAReady?, partyBReady? }
+ * DELETE /api/lobbies?code=       → { ok: true }
  *
  * Env vars required:
  *   UPSTASH_REDIS_REST_URL
@@ -25,10 +27,12 @@ const LOBBY_KEY   = (code: string) => `bow:lobby:${code}`;
 const INDEX_KEY   = 'bow:lobbies';
 
 interface PublicLobby {
-  code:      string;
-  hostId:    string;
-  hostName:  string;
-  createdAt: number;
+  code:        string;
+  hostId:      string;
+  hostName:    string;
+  createdAt:   number;
+  partyAReady: boolean;
+  partyBReady: boolean;
 }
 
 let redis: Redis | null = null;
@@ -63,8 +67,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
 
-  // ── GET — list all active public lobbies ────────────────────────────────
+  // ── GET — list all lobbies, or fetch one by ?code= ───────────────────────
   if (req.method === 'GET') {
+    const codeParam = String(req.query.code ?? '').toUpperCase();
+
+    // Single-lobby lookup (used for readiness polling)
+    if (codeParam.length === 6) {
+      const lobby = await db.get<PublicLobby>(LOBBY_KEY(codeParam));
+      return res.status(200).json({ lobby: lobby ?? null });
+    }
+
+    // Full list
     const codes = await db.smembers(INDEX_KEY);
     if (codes.length === 0) return res.status(200).json({ lobbies: [] });
 
@@ -92,15 +105,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'hostId required' });
     }
     const lobby: PublicLobby = {
-      code:      code.toUpperCase(),
+      code:        code.toUpperCase(),
       hostId,
-      hostName:  String(hostName).slice(0, 32),
-      createdAt: Date.now(),
+      hostName:    String(hostName).slice(0, 32),
+      createdAt:   Date.now(),
+      partyAReady: false,
+      partyBReady: false,
     };
     await db.set(LOBBY_KEY(lobby.code), lobby, { ex: TTL_SECONDS });
     await db.sadd(INDEX_KEY, lobby.code);
     console.log(`[aWizard Lobbies] Registered public lobby ${lobby.code} by ${hostId}`);
     return res.status(200).json({ ok: true });
+  }
+
+  // ── PATCH — mark a party as ready ─────────────────────────────────────────
+  if (req.method === 'PATCH') {
+    const { code, partyAReady, partyBReady } = req.body ?? {};
+    if (!code || typeof code !== 'string' || code.length !== 6) {
+      return res.status(400).json({ error: 'Invalid lobby code' });
+    }
+    const key   = LOBBY_KEY(code.toUpperCase());
+    const lobby = await db.get<PublicLobby>(key);
+    if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
+    const updated: PublicLobby = {
+      ...lobby,
+      ...(partyAReady !== undefined ? { partyAReady: Boolean(partyAReady) } : {}),
+      ...(partyBReady !== undefined ? { partyBReady: Boolean(partyBReady) } : {}),
+    };
+    await db.set(key, updated, { ex: TTL_SECONDS });
+    console.log(`[aWizard Lobbies] Readiness updated ${code.toUpperCase()} A=${updated.partyAReady} B=${updated.partyBReady}`);
+    return res.status(200).json({ ok: true, lobby: updated });
   }
 
   // ── DELETE — remove a lobby (host exited) ───────────────────────────────
