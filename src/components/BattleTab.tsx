@@ -384,7 +384,7 @@ function FighterPortrait({ src, size = 80, fill = false }: { src?: string; size?
   const [err, setErr] = useState(false);
   // fill=true: grow to consume remaining flex space in the parent column
   const style = fill
-    ? { width: '100%', flex: '1 1 0', minHeight: 0, background: 'rgba(0,0,0,0.3)' }
+    ? { width: '100%', height: '100%', background: 'rgba(0,0,0,0.3)' }
     : { width: size, height: size, flexShrink: 0, background: 'rgba(0,0,0,0.3)' };
   if (!src || err) {
     return (
@@ -832,7 +832,7 @@ function BattleInterface({
               )}
             </div>
             {/* Portrait fills remaining width */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden" style={{ height: '100%' }}>
               <FighterPortrait src={myFighter?.imageUri} size={130} fill />
             </div>
           </div>
@@ -850,7 +850,7 @@ function BattleInterface({
           {/* Body: portrait left, move info right */}
           <div className="flex gap-1.5 flex-1 min-h-0 mt-0.5">
             {/* Portrait */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden" style={{ height: '100%' }}>
               <FighterPortrait src={opponentFighter?.imageUri} size={130} fill />
             </div>
             {/* AI move info */}

@@ -95,30 +95,33 @@ function CardSlot({ card, label, size = 'md', highlight, onClick, flipped }: Car
       <button
         onClick={onClick}
         disabled={!onClick}
-        className={`${w} rounded border ${colorCls} ${ringCls} relative overflow-hidden flex flex-col items-center justify-between p-0.5 text-center cursor-pointer select-none transition-all hover:brightness-110 disabled:cursor-default`}
+        className={`${w} rounded border ${colorCls} ${ringCls} relative overflow-hidden flex flex-row items-stretch cursor-pointer select-none transition-all hover:brightness-110 disabled:cursor-default`}
       >
         {flipped ? (
           <span className="text-zinc-500 text-[9px] m-auto">🂠</span>
         ) : card ? (
           <>
+            {/* Image fills full height on left */}
             {card.imageUri && !imgError ? (
               <img
                 src={card.imageUri}
                 alt={card.name}
-                className="w-full flex-1 min-h-0 object-contain rounded-sm bg-black/30"
+                className="h-full object-cover rounded-sm bg-black/30 shrink-0"
+                style={{ width: '55%' }}
                 onError={() => setImgError(true)}
               />
             ) : (
-              <span className="text-lg leading-none pt-1">
-                {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}
-              </span>
+              <div className="flex items-center justify-center bg-black/20 shrink-0" style={{ width: '55%' }}>
+                <span className="text-base leading-none">
+                  {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}
+                </span>
+              </div>
             )}
-            <div className="w-full">
-              <p className="text-[7px] font-bold text-white leading-tight truncate">{card.name}</p>
+            {/* Stats strip on right */}
+            <div className="flex flex-col justify-end p-0.5 flex-1 min-w-0 overflow-hidden">
+              <p className="text-[6px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word', hyphens: 'auto' }}>{card.name}</p>
               {card.stats && (
-                <p className="text-[7px] text-zinc-200">
-                  ❤{card.currentHp}/{card.stats.maxHp}
-                </p>
+                <p className="text-[6px] text-zinc-200 leading-tight">❤{card.currentHp}/{card.stats.maxHp}</p>
               )}
             </div>
           </>
@@ -535,6 +538,11 @@ function GameBoard() {
         </div>
       )}
 
+      {/* Main: board column left + log column right */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Board column */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+
       {/* === OPPONENT SIDE === */}
       <div className="flex flex-col gap-1 p-1.5 pb-0.5">
         {/* Opponent info bar */}
@@ -634,23 +642,29 @@ function GameBoard() {
             <button
               key={card.instanceId}
               onClick={() => isMyTurn && handleCardClick(card)}
-              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-col items-center justify-between p-0.5 transition-all`}            >
+              className={`flex-shrink-0 ${CARD_HAND} rounded border ${colorCls} ${isSelected ? 'ring-2 ring-yellow-400 -translate-y-2' : ''} flex flex-row items-stretch overflow-hidden transition-all`}
+            >
+              {/* Image fills height */}
               {card.imageUri ? (
                 <img
                   src={card.imageUri}
                   alt={card.name}
-                  className="w-full flex-1 min-h-0 object-contain rounded-sm bg-black/30"
+                  className="h-full object-cover rounded-sm bg-black/30 shrink-0"
+                  style={{ width: '55%' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ) : (
-                <span className="text-lg pt-1">
-                  {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}
-                </span>
+                <div className="flex items-center justify-center bg-black/20 shrink-0" style={{ width: '55%' }}>
+                  <span className="text-base">
+                    {card.type === 'memory_artifact' ? '📜' : card.type === 'flash_relic' ? '⚡' : card.type === 'energy_bloom' ? '🌸' : '🔮'}
+                  </span>
+                </div>
               )}
-              <div className="w-full">
-                <p className="text-[7px] font-bold text-white leading-tight truncate">{card.name}</p>
-                <p className="text-[7px] text-zinc-300">{card.element}</p>
-                {card.stats && <p className="text-[7px] text-zinc-200">❤{card.stats.hp}</p>}
+              {/* Stats strip */}
+              <div className="flex flex-col justify-end p-0.5 flex-1 min-w-0 overflow-hidden">
+                <p className="text-[6px] font-bold text-white leading-tight" style={{ wordBreak: 'break-word' }}>{card.name}</p>
+                <p className="text-[6px] text-zinc-300 leading-tight">{card.element}</p>
+                {card.stats && <p className="text-[6px] text-zinc-200 leading-tight">❤{card.stats.hp}</p>}
               </div>
             </button>
           );
@@ -674,16 +688,22 @@ function GameBoard() {
         <WizardHint />
       </div>
 
-      {/* === GAME LOG === */}
-      <div className="border-t border-zinc-800 mx-2" />
-      <div
-        ref={logRef}
-        className="flex-1 overflow-y-auto px-2 py-0.5 max-h-[52px] scrollbar-hide"
-      >
-        {log.slice(-8).map((entry, i) => (
-          <p key={i} className="text-[9px] text-zinc-400 leading-relaxed">{entry}</p>
-        ))}
+      </div>{/* end board column */}
+
+      {/* Log column — slim right sidebar */}
+      <div className="flex flex-col border-l border-zinc-800 overflow-hidden shrink-0" style={{ width: 64 }}>
+        <p className="text-[8px] text-zinc-500 uppercase tracking-wide px-1.5 pt-1 pb-0.5 shrink-0">📜 Log</p>
+        <div
+          ref={logRef}
+          className="flex-1 overflow-y-auto px-1 py-0.5 scrollbar-hide"
+        >
+          {log.slice(-40).map((entry, i) => (
+            <p key={i} className="text-[8px] text-zinc-400 leading-relaxed">{entry}</p>
+          ))}
+        </div>
       </div>
+
+      </div>{/* end main flex row */}
     </div>
   );
 }
