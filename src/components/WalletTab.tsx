@@ -292,31 +292,31 @@ function FighterSelector({ nfts, selected, onSelect, onLoad, isLoading, nftError
                   }}
                 >
                   {/* Horizontal layout — image fills card, stats sliver on right */}
-                  <div className="flex" style={{ height: 200 }}>
-                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} height={200} />
+                  <div className="flex" style={{ height: 240 }}>
+                    <NftImage src={nft.image} alt={nft.name} elColour={elColour} height={240} />
 
-                    {/* Stats column — fixed 42px sliver */}
-                    <div className="px-1 py-1.5 flex flex-col gap-0.5 flex-shrink-0"
-                      style={{ width: 42, background: 'rgba(0,0,0,0.28)' }}>
+                    {/* Stats column — fixed 62px sliver */}
+                    <div className="px-1 py-1.5 flex flex-col gap-1 flex-shrink-0"
+                      style={{ width: 62, background: 'rgba(0,0,0,0.28)' }}>
 
                       {/* Name */}
                       <p className="font-bold leading-tight"
-                        style={{ color: 'var(--text-color)', fontSize: '0.6rem', wordBreak: 'break-word' }}>{f.name}</p>
+                        style={{ color: 'var(--text-color)', fontSize: '0.85rem', wordBreak: 'break-word' }}>{f.name}</p>
 
                       {/* Element badge */}
                       <span
                         className="inline-block px-1 py-0.5 rounded font-bold self-start"
-                        style={{ fontSize: '0.5rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
+                        style={{ fontSize: '0.75rem', background: `${elColour}20`, color: elColour, border: `1px solid ${elColour}40` }}
                       >
                         {f.strength}
                       </span>
 
                       {/* Stats — one per row */}
-                      <div className="flex flex-col gap-0.5 mt-0.5">
-                        <span style={{ fontSize: '0.52rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
-                        <span style={{ fontSize: '0.52rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
-                        <span style={{ fontSize: '0.52rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
-                        <span style={{ fontSize: '0.52rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
+                      <div className="flex flex-col gap-1 mt-0.5">
+                        <span style={{ fontSize: '1rem', color: '#4caf50' }}>❤ {f.stats.hp}</span>
+                        <span style={{ fontSize: '1rem', color: '#ff6b35' }}>⚔ {f.stats.atk}</span>
+                        <span style={{ fontSize: '1rem', color: '#2196f3' }}>🛡 {f.stats.def}</span>
+                        <span style={{ fontSize: '1rem', color: '#ffd600' }}>💨 {f.stats.spd}</span>
                       </div>
 
                       {/* Selected indicator */}
