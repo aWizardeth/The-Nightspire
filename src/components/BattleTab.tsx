@@ -364,12 +364,15 @@ const EL_COLOURS: Record<string, string> = {
 };
 
 // ─── Inline fighter portrait (image or emoji fallback) ───────────────────────
-function FighterPortrait({ src, size = 80 }: { src?: string; size?: number }) {
+function FighterPortrait({ src, size = 80, fill = false }: { src?: string; size?: number; fill?: boolean }) {
   const [err, setErr] = useState(false);
+  const style = fill
+    ? { width: '100%', height: size, background: 'rgba(0,0,0,0.3)' }
+    : { width: size,  height: size, background: 'rgba(0,0,0,0.3)' };
   if (!src || err) {
     return (
       <div className="flex items-center justify-center rounded-lg text-4xl flex-shrink-0"
-        style={{ width: size, height: size, background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)' }}>
+        style={{ ...style, background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)' }}>
         🧙
       </div>
     );
@@ -377,7 +380,7 @@ function FighterPortrait({ src, size = 80 }: { src?: string; size?: number }) {
   return (
     <img src={src} alt="fighter" onError={() => setErr(true)}
       className="rounded-lg object-contain flex-shrink-0"
-      style={{ width: size, height: size, background: 'rgba(0,0,0,0.3)' }} />
+      style={style} />
   );
 }
 
@@ -403,7 +406,7 @@ function AiPracticePanel({ fighter, onStartBattle }: { fighter: Fighter; onStart
       {/* Fighter card */}
       <div className="flex gap-3 rounded-lg p-2"
         style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${elColour}30` }}>
-        <FighterPortrait src={fighter.imageUri} size={88} />
+        <FighterPortrait src={fighter.imageUri} size={88} fill />
         <div className="flex flex-col gap-1 min-w-0">
           <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text-color)' }}>{fighter.name}</p>
           <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold self-start"
@@ -741,37 +744,35 @@ function BattleInterface({
 
       {/* HP bars */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="glow-card p-2" style={{ border: '2px solid var(--accent)' }}>
-          <div className="flex gap-2 items-center mb-1">
-            <FighterPortrait src={myFighter?.imageUri} size={40} />
-            <div className="min-w-0">
-              <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{myFighter?.rarity} · {myFighter?.strength}</p>
+        {/* Player card */}
+        <div className="glow-card p-2 flex flex-col gap-2" style={{ border: '2px solid var(--accent)' }}>
+          <FighterPortrait src={myFighter?.imageUri} size={120} fill />
+          <div>
+            <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{myFighter?.name ?? 'You'}</p>
+            <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{myFighter?.rarity} · {myFighter?.strength}</p>
+            <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(74,222,128,0.2)' }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(0, (myHp / (myFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
             </div>
+            <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
+              {Math.max(0, myHp)} / {myFighter?.stats.hp || 100} HP
+            </span>
           </div>
-          <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(74,222,128,0.2)' }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(0, (myHp / (myFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
-          </div>
-          <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
-            {Math.max(0, myHp)} / {myFighter?.stats.hp || 100} HP
-          </span>
         </div>
-        <div className="glow-card p-2" style={{ border: '2px solid var(--danger)' }}>
-          <div className="flex gap-2 items-center mb-1">
-            <FighterPortrait src={opponentFighter?.imageUri} size={40} />
-            <div className="min-w-0">
-              <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'Opponent'}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{opponentFighter?.rarity} · {opponentFighter?.strength}</p>
+        {/* Opponent card */}
+        <div className="glow-card p-2 flex flex-col gap-2" style={{ border: '2px solid var(--danger)' }}>
+          <FighterPortrait src={opponentFighter?.imageUri} size={120} fill />
+          <div>
+            <p className="font-bold text-sm truncate" style={{ color: 'var(--text-color)' }}>{opponentFighter?.name ?? 'Opponent'}</p>
+            <p className="text-[10px] mb-1.5" style={{ color: 'var(--text-muted)' }}>{opponentFighter?.rarity} · {opponentFighter?.strength}</p>
+            <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(242,63,66,0.2)' }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(0, (opponentHp / (opponentFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
             </div>
+            <span className="text-xs font-semibold" style={{ color: 'var(--danger)' }}>
+              {Math.max(0, opponentHp)} / {opponentFighter?.stats.hp || 100} HP
+            </span>
           </div>
-          <div className="rounded-full h-2.5 overflow-hidden mb-1" style={{ background: 'rgba(242,63,66,0.2)' }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(0, (opponentHp / (opponentFighter?.stats.hp || 100)) * 100)}%`, background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
-          </div>
-          <span className="text-xs font-semibold" style={{ color: 'var(--danger)' }}>
-            {Math.max(0, opponentHp)} / {opponentFighter?.stats.hp || 100} HP
-          </span>
         </div>
       </div>
 
